@@ -1,0 +1,9 @@
+{
+  "name": "moderated-lms",
+  "version": "0.1.0",
+  "description": "CS4433 Moderated LMS console application",
+  "dependencies": [
+    "sqlite3",
+    "libsodium"
+  ]
+}

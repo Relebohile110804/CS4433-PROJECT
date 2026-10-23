@@ -1,0 +1,6 @@
+build/
+*.db
+submissions/
+coverage/
+.vscode/
+.vs/

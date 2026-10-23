@@ -1,0 +1,19 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libraries
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libsodium-dev gcovr
+      - name: Configure
+        run: cmake -S . -B build -DLMS_COVERAGE=ON
+      - name: Build
+        run: cmake --build build -j
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Coverage of the business layer
+        run: gcovr -r . --filter src/business/ build
