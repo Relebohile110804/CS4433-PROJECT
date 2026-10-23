@@ -11,6 +11,7 @@ option(LMS_COVERAGE "Build with gcov coverage flags (GCC/Clang only)" OFF)
 
 if(MSVC)
     add_compile_options(/W4 /permissive- /utf-8)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 else()
     add_compile_options(-Wall -Wextra -Wpedantic)
     if(LMS_COVERAGE)
@@ -75,16 +76,17 @@ lms_layer(lms_data         src/data)
 lms_layer(lms_presentation src/presentation)
 
 lms_link(lms_data         lms_business ${LMS_SQLITE} sodium)
+
+# schema.sql is built into the program, so a new lms.db can be created without any extra files.
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/database/schema.sql" LMS_SCHEMA_TEXT)
+configure_file(cmake/SchemaSql.h.in "${CMAKE_CURRENT_BINARY_DIR}/generated/SchemaSql.h" @ONLY)
+target_include_directories(lms_data PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 lms_link(lms_presentation lms_business)
 
 # main.cpp is the composition root: it creates the concrete classes and wires them together.
 add_executable(lms src/main.cpp)
 target_link_libraries(lms PRIVATE lms_presentation lms_data)
 
-# Copy the schema next to the program so a fresh lms.db can be created.
-add_custom_command(TARGET lms POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_CURRENT_SOURCE_DIR}/database/schema.sql" "$<TARGET_FILE_DIR:lms>/schema.sql")
 
 # ---- Tests -------------------------------------------------------------------
 if(LMS_BUILD_TESTS)
