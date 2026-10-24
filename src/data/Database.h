@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "business/ports/IBackup.h"
 #include "business/repositories/ITransactionManager.h"
 
 struct sqlite3;
@@ -68,7 +69,7 @@ private:
 };
 
 // The connection to lms.db. Creates the tables from schema.sql when the file is new.
-class Database : public repositories::ITransactionManager {
+class Database : public repositories::ITransactionManager, public ports::IBackup {
 public:
     // ":memory:" opens an in-memory database (used by the tests).
     explicit Database(const std::string& path);
@@ -82,8 +83,8 @@ public:
     std::unique_ptr<repositories::ITransaction> begin() override;
 
     // FR-23: copy the whole database to a file, or replace it with a copy.
-    void backupTo(const std::string& path);
-    void restoreFrom(const std::string& path);
+    void backupTo(const std::string& path) override;
+    void restoreFrom(const std::string& path) override;
 
     const std::string& getPath() const { return path_; }
 

@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "business/ports/IBackup.h"
+#include "business/repositories/ICourseRepository.h"
 #include "business/repositories/IUserRepository.h"
 #include "business/services/UserFactory.h"
 
@@ -54,6 +56,97 @@ private:
     }
     std::map<int, std::unique_ptr<lms::domain::User>> rows_;
     int nextId_ = 1;
+};
+
+// Departments and courses in maps. Lecturers and students are kept in each Course's id sets.
+class FakeCourseRepository : public lms::repositories::ICourseRepository {
+public:
+    int addDepartment(const std::string& name, int hodId) override {
+        int id = nextId_++;
+        departments_.emplace(id, lms::domain::Department(id, name, hodId));
+        return id;
+    }
+    void updateDepartment(const lms::domain::Department& d) override { departments_.at(d.getId()) = d; }
+    std::optional<lms::domain::Department> findDepartment(int id) override {
+        auto it = departments_.find(id);
+        if (it == departments_.end()) return std::nullopt;
+        return it->second;
+    }
+    std::optional<lms::domain::Department> departmentOfHod(int hodId) override {
+        for (auto& [id, d] : departments_)
+            if (d.getHodId() == hodId) return d;
+        return std::nullopt;
+    }
+    std::vector<lms::domain::Department> listDepartments() override {
+        std::vector<lms::domain::Department> result;
+        for (auto& [id, d] : departments_) result.push_back(d);
+        return result;
+    }
+
+    int addCourse(int departmentId, const std::string& code, const std::string& title) override {
+        int id = nextId_++;
+        courses_.emplace(id, lms::domain::Course(id, departmentId, code, title));
+        return id;
+    }
+    void updateCourse(const lms::domain::Course& c) override {
+        auto& stored = courses_.at(c.getId());
+        stored.rename(c.getCode(), c.getTitle());
+    }
+    std::optional<lms::domain::Course> findCourse(int id) override {
+        auto it = courses_.find(id);
+        if (it == courses_.end()) return std::nullopt;
+        return it->second;
+    }
+    std::optional<lms::domain::Course> findCourseByCode(const std::string& code) override {
+        for (auto& [id, c] : courses_)
+            if (c.getCode() == code) return c;
+        return std::nullopt;
+    }
+    std::vector<lms::domain::Course> listCourses() override { return where([](const lms::domain::Course&) { return true; }); }
+    std::vector<lms::domain::Course> coursesInDepartment(int departmentId) override {
+        return where([&](const lms::domain::Course& c) { return c.getDepartmentId() == departmentId; });
+    }
+    std::vector<lms::domain::Course> coursesForStudent(int studentId) override {
+        return where([&](const lms::domain::Course& c) { return c.hasStudent(studentId); });
+    }
+    std::vector<lms::domain::Course> coursesForLecturer(int lecturerId) override {
+        return where([&](const lms::domain::Course& c) { return c.isTaughtBy(lecturerId); });
+    }
+    int departmentOf(int courseId) override { return courses_.at(courseId).getDepartmentId(); }
+
+    void addLecturer(int courseId, int lecturerId) override { courses_.at(courseId).addLecturer(lecturerId); }
+    void removeLecturer(int courseId, int lecturerId) override { courses_.at(courseId).removeLecturer(lecturerId); }
+    bool isTeaching(int lecturerId, int courseId) override {
+        auto it = courses_.find(courseId);
+        return it != courses_.end() && it->second.isTaughtBy(lecturerId);
+    }
+    void enrol(int courseId, int studentId) override { courses_.at(courseId).enrol(studentId); }
+    void withdraw(int courseId, int studentId) override { courses_.at(courseId).withdraw(studentId); }
+    bool isEnrolled(int studentId, int courseId) override {
+        auto it = courses_.find(courseId);
+        return it != courses_.end() && it->second.hasStudent(studentId);
+    }
+
+private:
+    template <class Pred>
+    std::vector<lms::domain::Course> where(Pred keep) {
+        std::vector<lms::domain::Course> result;
+        for (auto& [id, c] : courses_)
+            if (keep(c)) result.push_back(c);
+        return result;
+    }
+    std::map<int, lms::domain::Department> departments_;
+    std::map<int, lms::domain::Course> courses_;
+    int nextId_ = 1;
+};
+
+// Remembers the last backup and restore paths instead of copying files.
+class FakeBackup : public lms::ports::IBackup {
+public:
+    void backupTo(const std::string& path) override { lastBackup = path; }
+    void restoreFrom(const std::string& path) override { lastRestore = path; }
+    std::string lastBackup;
+    std::string lastRestore;
 };
 
 }  // namespace fakes
