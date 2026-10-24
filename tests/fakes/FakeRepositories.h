@@ -7,7 +7,11 @@
 #include <vector>
 
 #include "business/ports/IBackup.h"
+#include "business/repositories/IAssignmentRepository.h"
+#include "business/repositories/IAuditRepository.h"
 #include "business/repositories/ICourseRepository.h"
+#include "business/repositories/ISubmissionRepository.h"
+#include "business/repositories/ITransactionManager.h"
 #include "business/repositories/IUserRepository.h"
 #include "business/services/UserFactory.h"
 
@@ -147,6 +151,123 @@ public:
     void restoreFrom(const std::string& path) override { lastRestore = path; }
     std::string lastBackup;
     std::string lastRestore;
+};
+
+// Assignments in a map; each one keeps its extensions, like the real repository returns them.
+class FakeAssignmentRepository : public lms::repositories::IAssignmentRepository {
+public:
+    std::optional<lms::domain::Assignment> findById(int id) override {
+        auto it = rows_.find(id);
+        if (it == rows_.end()) return std::nullopt;
+        return it->second;
+    }
+    std::vector<lms::domain::Assignment> forCourse(int courseId) override {
+        std::vector<lms::domain::Assignment> result;
+        for (auto& [id, a] : rows_)
+            if (a.getCourseId() == courseId) result.push_back(a);
+        return result;
+    }
+    int add(const lms::domain::Assignment& a) override {
+        int id = nextId_++;
+        lms::domain::Assignment stored = a;
+        stored.setId(id);
+        rows_.emplace(id, stored);
+        return id;
+    }
+    int addExtension(int assignmentId, const lms::domain::Extension& e) override {
+        lms::domain::Extension stored = e;
+        stored.setId(nextId_++);
+        rows_.at(assignmentId).restoreExtension(stored);
+        return stored.getId();
+    }
+
+private:
+    std::map<int, lms::domain::Assignment> rows_;
+    int nextId_ = 1;
+};
+
+// Submissions in a map. failNextSave makes the next save throw, to test that nothing is half saved.
+class FakeSubmissionRepository : public lms::repositories::ISubmissionRepository {
+public:
+    std::optional<lms::domain::Submission> findById(int id) override {
+        auto it = rows_.find(id);
+        if (it == rows_.end()) return std::nullopt;
+        return it->second;
+    }
+    std::optional<lms::domain::Submission> find(int assignmentId, int studentId) override {
+        for (auto& [id, sub] : rows_)
+            if (sub.getAssignmentId() == assignmentId && sub.getStudentId() == studentId) return sub;
+        return std::nullopt;
+    }
+    std::vector<lms::domain::Submission> forAssignment(int assignmentId) override {
+        std::vector<lms::domain::Submission> result;
+        for (auto& [id, sub] : rows_)
+            if (sub.getAssignmentId() == assignmentId) result.push_back(sub);
+        return result;
+    }
+    std::vector<lms::domain::Submission> forStudent(int studentId) override {
+        std::vector<lms::domain::Submission> result;
+        for (auto& [id, sub] : rows_)
+            if (sub.getStudentId() == studentId) result.push_back(sub);
+        return result;
+    }
+    int save(const lms::domain::Submission& sub) override {
+        if (failNextSave) {
+            failNextSave = false;
+            throw std::runtime_error("disk full");
+        }
+        lms::domain::Submission stored = sub;
+        if (stored.getId() == 0) stored.setId(nextId_++);
+        rows_.insert_or_assign(stored.getId(), stored);
+        return stored.getId();
+    }
+    bool failNextSave = false;
+
+private:
+    std::map<int, lms::domain::Submission> rows_;
+    int nextId_ = 1;
+};
+
+// Keeps every entry and the filters of the last query. The filtering itself is
+// done by SQL in the real repository, so here query() returns all entries.
+class FakeAuditRepository : public lms::repositories::IAuditRepository {
+public:
+    int append(const lms::domain::AuditEntry& e) override {
+        entries.push_back(e);
+        return static_cast<int>(entries.size());
+    }
+    std::vector<lms::domain::AuditEntry> query(std::optional<int> departmentId, std::optional<int> courseId,
+                                               std::optional<int> assignmentId) override {
+        lastDepartment = departmentId;
+        lastCourse = courseId;
+        lastAssignment = assignmentId;
+        return entries;
+    }
+    std::vector<lms::domain::AuditEntry> entries;
+    std::optional<int> lastDepartment, lastCourse, lastAssignment;
+};
+
+// Counts transactions so tests can check that work was committed or rolled back.
+class FakeTransactionManager : public lms::repositories::ITransactionManager {
+public:
+    class Tx : public lms::repositories::ITransaction {
+    public:
+        explicit Tx(FakeTransactionManager& m) : m_(m) {}
+        ~Tx() override {
+            if (!done_) ++m_.rolledBack;
+        }
+        void commit() override {
+            done_ = true;
+            ++m_.committed;
+        }
+
+    private:
+        FakeTransactionManager& m_;
+        bool done_ = false;
+    };
+    std::unique_ptr<lms::repositories::ITransaction> begin() override { return std::make_unique<Tx>(*this); }
+    int committed = 0;
+    int rolledBack = 0;
 };
 
 }  // namespace fakes
