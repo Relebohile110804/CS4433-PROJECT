@@ -17,6 +17,8 @@ public:
     void changePassword(const domain::Session& s, const std::string& currentPassword,
                         const std::string& newPassword) override;
 
+    std::string nameOf(const domain::Session& s, int userId) override;
+
     // Also used by AdminService when it creates accounts or resets passwords.
     static void checkPasswordRules(const std::string& password);
 

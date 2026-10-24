@@ -54,4 +54,10 @@ void AuthService::changePassword(const Session& s, const std::string& currentPas
     users_.update(*user);
 }
 
+std::string AuthService::nameOf(const Session&, int userId) {
+    std::unique_ptr<User> user = users_.findById(userId);
+    if (!user) return "Unknown user " + std::to_string(userId);
+    return user->getFullName() + " (" + user->getPersonNumber() + ")";
+}
+
 }  // namespace lms::services

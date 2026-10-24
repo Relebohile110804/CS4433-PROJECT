@@ -1,33 +1,62 @@
 // Moderated LMS - composition root.
 // Creates the concrete Data Access classes, passes them into the services and starts the menus.
-// The menus are added in Step 12; for now it checks the libraries, the database and the hasher.
-#include <chrono>
 #include <exception>
 #include <iostream>
 
+#include "business/services/AdminService.h"
+#include "business/services/AssignmentService.h"
+#include "business/services/AuditService.h"
+#include "business/services/AuthService.h"
+#include "business/services/MarkingService.h"
+#include "business/services/ModerationService.h"
+#include "business/services/SubmissionService.h"
+#include "business/services/TenPercentPerDayPolicy.h"
 #include "data/Database.h"
+#include "data/LocalFileStore.h"
 #include "data/SodiumPasswordHasher.h"
+#include "data/SqliteAssignmentRepository.h"
+#include "data/SqliteAuditRepository.h"
+#include "data/SqliteCourseRepository.h"
+#include "data/SqliteSubmissionRepository.h"
+#include "data/SqliteUserRepository.h"
+#include "data/SystemClock.h"
 #include "data/Toolchain.h"
+#include "presentation/App.h"
 
 int main() {
-    std::cout << "Moderated LMS\n";
-    if (!lms::data::initSodium()) {
+    using namespace lms;
+    if (!data::initSodium()) {
         std::cerr << "Could not start the password library (libsodium).\n";
         return 1;
     }
-    std::cout << "SQLite " << lms::data::sqliteVersion() << ", libsodium ready.\n";
     try {
-        lms::data::Database db("lms.db");
-        std::cout << "Database ready: " << db.getPath() << "\n";
+        // Data Access and External
+        data::Database db("lms.db");
+        data::SqliteUserRepository users(db);
+        data::SqliteCourseRepository courses(db);
+        data::SqliteAssignmentRepository assignments(db);
+        data::SqliteSubmissionRepository submissions(db);
+        data::SqliteAuditRepository auditLog(db);
+        data::SodiumPasswordHasher hasher;
+        data::LocalFileStore files("submissions");
+        data::SystemClock clock;
 
-        // R11 check: how long one login's password check takes on this computer (NFR-01: under 2 s).
-        lms::data::SodiumPasswordHasher hasher;
-        auto start = std::chrono::steady_clock::now();
-        hasher.verify(hasher.hash("timing-check"), "timing-check");
-        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
-        std::cout << "Password hash + check: " << ms.count() << " ms\n";
+        // Business Logic
+        services::TenPercentPerDayPolicy policy;
+        services::AuthService auth(users, hasher, clock);
+        services::AdminService admin(users, courses, hasher, db);
+        services::AssignmentService assignmentService(assignments, courses, clock);
+        services::AuditService audit(auditLog, courses, clock);
+        services::SubmissionService submitting(submissions, assignments, courses, files, policy, clock, db);
+        services::MarkingService marking(submissions, assignments, courses, policy, audit, clock, db);
+        services::ModerationService moderation(submissions, assignments, courses, audit, clock, db);
+
+        // Presentation
+        presentation::ConsoleIO io(std::cin, std::cout);
+        presentation::App app({auth, admin, assignmentService, submitting, marking, moderation, audit}, io);
+        app.run();
     } catch (const std::exception& e) {
-        std::cerr << e.what() << "\n";
+        std::cerr << "The program had to stop: " << e.what() << "\n";
         return 1;
     }
     return 0;

@@ -18,6 +18,7 @@ public:
                         const std::string& reason) override;
     domain::TimePoint effectiveDeadline(int assignmentId, int studentId) override;
     std::vector<domain::Assignment> listForStudent(const domain::Session& s) override;
+    std::vector<domain::Course> myCourses(const domain::Session& s) override;
     std::vector<domain::Assignment> listForCourse(const domain::Session& s, int courseId) override;
 
 private:

@@ -104,6 +104,13 @@ TEST_CASE("FR-03: changing a password") {
     }
 }
 
+TEST_CASE("nameOf shows the name and number for screens") {
+    AuthFixture f;
+    Session s = f.auth.login("tmokoena", "correct-horse");
+    CHECK(f.auth.nameOf(s, f.lecturerId) == "Thabo Mokoena (S100)");
+    CHECK(f.auth.nameOf(s, 999) == "Unknown user 999");
+}
+
 TEST_CASE("BR-05: a session refuses actions the role does not have") {
     AuthFixture f;
     Session s = f.auth.login("tmokoena", "correct-horse");

@@ -13,11 +13,9 @@ public:
                  ports::IPasswordHasher& hasher, ports::IBackup& backup)
         : users_(users), courses_(courses), hasher_(hasher), backup_(backup) {}
 
-    // First run: when the database has no administrator yet, main() creates one
-    // so that somebody can log in and set up the rest.
-    bool needsFirstAdministrator();
+    bool needsFirstAdministrator() override;
     int createFirstAdministrator(const std::string& username, const std::string& fullName,
-                                 const std::string& number, const std::string& password);
+                                 const std::string& number, const std::string& password) override;
 
     int createUser(const domain::Session& s, domain::Role role, const std::string& username,
                    const std::string& fullName, const std::string& number, const std::string& password) override;

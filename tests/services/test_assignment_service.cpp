@@ -126,6 +126,17 @@ TEST_CASE("FR-10: a student sees the assignments of their own courses only") {
     CHECK_THROWS_AS(f.service.listForStudent(f.as(f.lecturer)), AccessDenied);
 }
 
+TEST_CASE("each role gets its own list of courses") {
+    AssignmentFixture f;
+    CHECK(f.service.myCourses(f.as(f.lecturer)).size() == 1);
+    CHECK(f.service.myCourses(f.as(f.student)).size() == 1);
+    CHECK(f.service.myCourses(f.as(f.hod)).size() == 2);
+    int admin = f.addUser(Role::Administrator, "admin", "S001");
+    CHECK(f.service.myCourses(f.as(admin)).size() == 2);
+    int spare = f.addUser(Role::HeadOfDepartment, "spare", "S101");
+    CHECK(f.service.myCourses(f.as(spare)).empty());
+}
+
 TEST_CASE("BR-05: who may list the assignments of a course") {
     AssignmentFixture f;
     f.project();
@@ -136,6 +147,6 @@ TEST_CASE("BR-05: who may list the assignments of a course") {
     CHECK_THROWS_AS(f.service.listForCourse(f.as(f.lecturer), f.otherCourse), AccessDenied);
 
     int admin = f.addUser(Role::Administrator, "admin", "S001");
-    CHECK_THROWS_AS(f.service.listForCourse(f.as(admin), f.course), AccessDenied);
+    CHECK(f.service.listForCourse(f.as(admin), f.course).size() == 1);  // read-only, for the audit filter
     CHECK_THROWS_WITH(f.service.listForCourse(f.as(f.lecturer), 999), "Course not found");
 }

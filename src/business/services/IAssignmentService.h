@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "business/domain/Assignment.h"
+#include "business/domain/Course.h"
 #include "business/domain/Session.h"
 
 namespace lms::services {
@@ -22,7 +23,10 @@ public:
     virtual domain::TimePoint effectiveDeadline(int assignmentId, int studentId) = 0;
     // FR-10: the assignments in every course the student is enrolled in.
     virtual std::vector<domain::Assignment> listForStudent(const domain::Session& s) = 0;
-    // The assignments of one course, for its lecturers, its HoD or its students.
+    // The courses the user works with: taught (lecturer), enrolled in (student), in the department (HoD),
+    // or every course (administrator).
+    virtual std::vector<domain::Course> myCourses(const domain::Session& s) = 0;
+    // The assignments of one course, for its lecturers, its students, its HoD or the administrator.
     virtual std::vector<domain::Assignment> listForCourse(const domain::Session& s, int courseId) = 0;
 };
 

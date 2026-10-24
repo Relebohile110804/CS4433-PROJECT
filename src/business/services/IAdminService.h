@@ -16,6 +16,12 @@ class IAdminService {
 public:
     virtual ~IAdminService() = default;
 
+    // First run: when the database has no administrator yet, the program creates one
+    // so that somebody can log in and set up the rest.
+    virtual bool needsFirstAdministrator() = 0;
+    virtual int createFirstAdministrator(const std::string& username, const std::string& fullName,
+                                         const std::string& number, const std::string& password) = 0;
+
     // Users (FR-04)
     virtual int createUser(const domain::Session& s, domain::Role role, const std::string& username,
                            const std::string& fullName, const std::string& number, const std::string& password) = 0;

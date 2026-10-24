@@ -54,6 +54,20 @@ std::vector<Assignment> AssignmentService::listForStudent(const Session& s) {
     return result;
 }
 
+std::vector<Course> AssignmentService::myCourses(const Session& s) {
+    int me = s.getUser().getId();
+    switch (s.getUser().getRole()) {
+        case Role::Lecturer: return courses_.coursesForLecturer(me);
+        case Role::Student: return courses_.coursesForStudent(me);
+        case Role::HeadOfDepartment: {
+            std::optional<Department> d = courses_.departmentOfHod(me);
+            return d ? courses_.coursesInDepartment(d->getId()) : std::vector<Course>{};
+        }
+        case Role::Administrator: return courses_.listCourses();
+    }
+    return {};
+}
+
 std::vector<Assignment> AssignmentService::listForCourse(const Session& s, int courseId) {
     if (!courses_.findCourse(courseId)) throw RuleViolation("Course not found");
     int me = s.getUser().getId();
@@ -66,7 +80,7 @@ std::vector<Assignment> AssignmentService::listForCourse(const Session& s, int c
             allowed = d && d->getId() == courses_.departmentOf(courseId);
             break;
         }
-        case Role::Administrator: allowed = false; break;
+        case Role::Administrator: allowed = true; break;  // read-only, for the audit log filter
     }
     if (!allowed) throw AccessDenied("You cannot see the assignments of this course");
     return assignments_.forCourse(courseId);

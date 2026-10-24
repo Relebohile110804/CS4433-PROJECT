@@ -13,6 +13,8 @@ public:
     // UC-02 / FR-03: the current password must be right and the new one at least 8 characters.
     virtual void changePassword(const domain::Session& s, const std::string& currentPassword,
                                 const std::string& newPassword) = 0;
+    // "Full Name (number)" for showing who submitted or changed something on screen.
+    virtual std::string nameOf(const domain::Session& s, int userId) = 0;
 };
 
 }  // namespace lms::services
