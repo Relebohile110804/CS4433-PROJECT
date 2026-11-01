@@ -91,11 +91,20 @@ target_link_libraries(lms PRIVATE lms_presentation lms_data)
 # ---- Tests -------------------------------------------------------------------
 if(LMS_BUILD_TESTS)
     enable_testing()
+    # Catch2 v3 (single-file amalgamated build) is kept in third_party, so nothing has to be installed.
+    # It is compiled once as its own library, without our warning flags, and provides main().
+    add_library(catch2 STATIC third_party/catch2/catch_amalgamated.cpp)
+    target_include_directories(catch2 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
+    target_compile_options(catch2 PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/W0,-w>)
+
     file(GLOB_RECURSE test_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
     add_executable(lms_tests ${test_sources})
-    target_include_directories(lms_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
-    target_link_libraries(lms_tests PRIVATE lms_presentation lms_business lms_data)
+    target_link_libraries(lms_tests PRIVATE catch2 lms_presentation lms_business lms_data)
     target_link_libraries(lms_tests PRIVATE ${LMS_SQLITE})
     target_compile_definitions(lms_tests PRIVATE LMS_SCHEMA_PATH="${CMAKE_CURRENT_SOURCE_DIR}/database/schema.sql")
-    add_test(NAME unit_tests COMMAND lms_tests)
+
+    # One CTest entry per V-Model level, selected by the tags on each TEST_CASE.
+    add_test(NAME unit_tests COMMAND lms_tests "[unit]")
+    add_test(NAME integration_tests COMMAND lms_tests "[integration]")
+    add_test(NAME system_tests COMMAND lms_tests "[system]")
 endif()

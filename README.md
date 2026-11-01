@@ -13,8 +13,8 @@ built as a closed layered architecture (see the Week Three design document).
 | `src/data/` | Data Access: SQLite repositories, transactions, file store, password hasher, clock |
 | `src/main.cpp` | Composition root: creates the concrete classes and wires them together |
 | `database/schema.sql` | Database schema (Week Three, Section 4.3) |
-| `tests/` | Unit tests (doctest) |
-| `third_party/doctest/` | doctest 2.4.11, single header |
+| `tests/` | Automated tests (Catch2), tagged [unit], [integration] or [system] |
+| `third_party/catch2/` | Catch2 v3.7.1, amalgamated single-file build |
 
 Each layer is its own library in CMake, and a layer only links the one below it, so a call that skips a layer fails to build.
 
@@ -76,6 +76,16 @@ cmake --build --preset linux-debug
 ctest --preset linux-debug
 ```
 
+The tests use Catch2 and are tagged by V-Model level, so one level can be run on its own:
+
+```
+lms_tests "[unit]"
+lms_tests "[integration]"
+lms_tests "[system]"
+```
+
+Timing results (Argon2id and the full-size performance test) are printed as Catch2 "warning" messages; they are information, not failures.
+
 Business-layer coverage (NFR-12 target: 70% of lines) is measured on Linux with gcov, which is also what CI runs:
 
 ```
@@ -84,3 +94,5 @@ cmake --build build-cov
 ctest --test-dir build-cov
 gcovr -r . --filter src/business/ build-cov
 ```
+
+CI runs the same steps on every push, fails if business-layer coverage drops below 70%, and saves the JUnit test results and an HTML coverage report as a build artifact.

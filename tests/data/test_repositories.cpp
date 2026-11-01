@@ -1,4 +1,4 @@
-#include "doctest/doctest.h"
+#include "catch2/catch_amalgamated.hpp"
 
 #include "../TestHelpers.h"
 #include "business/domain/User.h"
@@ -50,7 +50,7 @@ SubmissionVersion version(int n) {
 
 }  // namespace
 
-TEST_CASE("users are saved and read back as the right subclass") {
+TEST_CASE("users are saved and read back as the right subclass", "[integration][data]") {
     School s;
     auto hod = s.users.findById(s.hod);
     REQUIRE(hod);
@@ -67,12 +67,12 @@ TEST_CASE("users are saved and read back as the right subclass") {
     CHECK_FALSE(s.users.personNumberExists("9999"));
 }
 
-TEST_CASE("usernames are unique") {
+TEST_CASE("usernames are unique", "[integration][data]") {
     School s;
     CHECK_THROWS_AS(s.addUser(Student(0, "stu1", "Copy", "2023999")), DatabaseError);
 }
 
-TEST_CASE("user update keeps lockout state and deactivation") {
+TEST_CASE("user update keeps lockout state and deactivation", "[integration][data]") {
     School s;
     auto u = s.users.findById(s.student1);
     for (int i = 0; i < User::MaxFailedLogins; ++i) u->recordFailedLogin(hoursAfter(0));
@@ -86,7 +86,7 @@ TEST_CASE("user update keeps lockout state and deactivation") {
     CHECK(again->getFullName() == "Ann Renamed");
 }
 
-TEST_CASE("list users by role") {
+TEST_CASE("list users by role", "[integration][data]") {
     School s;
     CHECK(s.users.list(std::nullopt).size() == 4);
     auto students = s.users.list(Role::Student);
@@ -94,7 +94,7 @@ TEST_CASE("list users by role") {
     CHECK(students[0]->getFullName() == "Ann Student");  // ordered by name
 }
 
-TEST_CASE("departments and courses") {
+TEST_CASE("departments and courses", "[integration][data]") {
     School s;
     auto d = s.courses.departmentOfHod(s.hod);
     REQUIRE(d);
@@ -121,7 +121,7 @@ TEST_CASE("departments and courses") {
     CHECK(s.courses.listCourses().size() == 1);
 }
 
-TEST_CASE("lecturers and enrolments") {
+TEST_CASE("lecturers and enrolments", "[integration][data]") {
     School s;
     CHECK(s.courses.isTeaching(s.lecturer, s.course));
     CHECK(s.courses.coursesForLecturer(s.lecturer).size() == 1);
@@ -137,7 +137,7 @@ TEST_CASE("lecturers and enrolments") {
     CHECK(s.courses.coursesForStudent(s.student2).empty());
 }
 
-TEST_CASE("assignments with extensions") {
+TEST_CASE("assignments with extensions", "[integration][data]") {
     School s;
     int id = s.addAssignment();
     s.assignments.addExtension(id, Extension(0, s.student1, hoursAfter(96), "Illness", s.lecturer, hoursAfter(1)));
@@ -154,7 +154,7 @@ TEST_CASE("assignments with extensions") {
     CHECK_FALSE(s.assignments.findById(999));
 }
 
-TEST_CASE("submission life cycle is stored: versions, mark, moderation, release") {
+TEST_CASE("submission life cycle is stored: versions, mark, moderation, release", "[integration][data]") {
     School s;
     int aId = s.addAssignment();
 
@@ -175,7 +175,7 @@ TEST_CASE("submission life cycle is stored: versions, mark, moderation, release"
     s.submissions.save(sub);
     sub = *s.submissions.findById(id);
     REQUIRE(sub.getMark());
-    CHECK(sub.getMark()->getFinalMark() == doctest::Approx(70));
+    CHECK(sub.getMark()->getFinalMark() == Catch::Approx(70));
     CHECK(sub.getStatus() == SubmissionStatus::Marked);
 
     sub.recordMark(Mark(75, 0, 75, "Re-marked", s.lecturer, hoursAfter(51)));  // correction replaces the mark
@@ -186,7 +186,7 @@ TEST_CASE("submission life cycle is stored: versions, mark, moderation, release"
     sub = *s.submissions.findById(id);
     CHECK(sub.getStatus() == SubmissionStatus::Released);
     CHECK(sub.getMark()->getRawMark() == 75);
-    CHECK(sub.getMark()->getFinalMark() == doctest::Approx(72.5));
+    CHECK(sub.getMark()->getFinalMark() == Catch::Approx(72.5));
     CHECK(sub.getModeratedBy() == s.hod);
     CHECK(sub.getReleasedAt() == hoursAfter(53));
     CHECK(s.submissions.forAssignment(aId).size() == 1);
@@ -194,7 +194,7 @@ TEST_CASE("submission life cycle is stored: versions, mark, moderation, release"
     CHECK(s.submissions.forStudent(s.student2).empty());
 }
 
-TEST_CASE("returned submission keeps the HoD comment") {
+TEST_CASE("returned submission keeps the HoD comment", "[integration][data]") {
     School s;
     int aId = s.addAssignment();
     Submission sub = Submission::createNew(aId, s.student1, version(1), 2);
@@ -206,17 +206,17 @@ TEST_CASE("returned submission keeps the HoD comment") {
     CHECK(sub.getStatus() == SubmissionStatus::Returned);
     CHECK(sub.getDaysLate() == 2);
     CHECK(sub.getHodComment() == "Check the penalty");
-    CHECK(sub.getMark()->getPenalty() == doctest::Approx(20));
+    CHECK(sub.getMark()->getPenalty() == Catch::Approx(20));
 }
 
-TEST_CASE("one submission per student per assignment") {
+TEST_CASE("one submission per student per assignment", "[integration][data]") {
     School s;
     int aId = s.addAssignment();
     s.submissions.save(Submission::createNew(aId, s.student1, version(1), 0));
     CHECK_THROWS_AS(s.submissions.save(Submission::createNew(aId, s.student1, version(1), 0)), DatabaseError);
 }
 
-TEST_CASE("audit log query filters by department, course and assignment") {
+TEST_CASE("audit log query filters by department, course and assignment", "[integration][data]") {
     School s;
     int a1 = s.addAssignment();
     int a2 = s.addAssignment();
@@ -234,7 +234,7 @@ TEST_CASE("audit log query filters by department, course and assignment") {
 
     auto forA1 = s.audit.query(std::nullopt, std::nullopt, a1);
     REQUIRE(forA1.size() == 2);
-    CHECK(*forA1[1].getOldValue() == doctest::Approx(70));
+    CHECK(*forA1[1].getOldValue() == Catch::Approx(70));
     CHECK(forA1[1].getChangedBy() == s.hod);
 
     CHECK(s.audit.query(s.dept, std::nullopt, std::nullopt).size() == 3);

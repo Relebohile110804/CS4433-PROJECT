@@ -1,4 +1,4 @@
-#include "doctest/doctest.h"
+#include "catch2/catch_amalgamated.hpp"
 
 #include "../TestHelpers.h"
 #include "../fakes/FakeRepositories.h"
@@ -47,7 +47,7 @@ struct AssignmentFixture {
 
 }  // namespace
 
-TEST_CASE("FR-08: a lecturer creates an assignment for a course they teach") {
+TEST_CASE("FR-08: a lecturer creates an assignment for a course they teach", "[unit][service]") {
     AssignmentFixture f;
     int id = f.project();
     auto a = f.assignments.findById(id);
@@ -57,7 +57,7 @@ TEST_CASE("FR-08: a lecturer creates an assignment for a course they teach") {
     CHECK(a->getDeadline() == hoursAfter(48));
 }
 
-TEST_CASE("FR-08: assignment rules") {
+TEST_CASE("FR-08: assignment rules", "[unit][service]") {
     AssignmentFixture f;
     Session lect = f.as(f.lecturer);
     CHECK_THROWS_AS(f.service.createAssignment(lect, f.otherCourse, "Quiz", "", hoursAfter(48), 10), AccessDenied);
@@ -72,7 +72,7 @@ TEST_CASE("FR-08: assignment rules") {
                       "Assignment title cannot be empty");
 }
 
-TEST_CASE("FR-09, BR-03: an extension changes only that student's deadline") {
+TEST_CASE("FR-09, BR-03: an extension changes only that student's deadline", "[unit][service]") {
     AssignmentFixture f;
     int a = f.project();
     f.courses.enrol(f.course, f.otherStudent);
@@ -87,7 +87,7 @@ TEST_CASE("FR-09, BR-03: an extension changes only that student's deadline") {
     CHECK(stored->getExtensions()[0].getReason() == "Medical certificate");
 }
 
-TEST_CASE("FR-09, BR-03: extension rules") {
+TEST_CASE("FR-09, BR-03: extension rules", "[unit][service]") {
     AssignmentFixture f;
     int a = f.project();
     Session lect = f.as(f.lecturer);
@@ -114,7 +114,7 @@ TEST_CASE("FR-09, BR-03: extension rules") {
                       "The new deadline must be in the future");
 }
 
-TEST_CASE("FR-10: a student sees the assignments of their own courses only") {
+TEST_CASE("FR-10: a student sees the assignments of their own courses only", "[unit][service]") {
     AssignmentFixture f;
     f.project();
     f.courses.addLecturer(f.otherCourse, f.lecturer);
@@ -126,7 +126,7 @@ TEST_CASE("FR-10: a student sees the assignments of their own courses only") {
     CHECK_THROWS_AS(f.service.listForStudent(f.as(f.lecturer)), AccessDenied);
 }
 
-TEST_CASE("each role gets its own list of courses") {
+TEST_CASE("each role gets its own list of courses", "[unit][service]") {
     AssignmentFixture f;
     CHECK(f.service.myCourses(f.as(f.lecturer)).size() == 1);
     CHECK(f.service.myCourses(f.as(f.student)).size() == 1);
@@ -137,7 +137,7 @@ TEST_CASE("each role gets its own list of courses") {
     CHECK(f.service.myCourses(f.as(spare)).empty());
 }
 
-TEST_CASE("BR-05: who may list the assignments of a course") {
+TEST_CASE("BR-05: who may list the assignments of a course", "[unit][service]") {
     AssignmentFixture f;
     f.project();
     CHECK(f.service.listForCourse(f.as(f.lecturer), f.course).size() == 1);

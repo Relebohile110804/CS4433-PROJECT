@@ -1,4 +1,4 @@
-#include "doctest/doctest.h"
+#include "catch2/catch_amalgamated.hpp"
 
 #include "ServiceFixture.h"
 #include "business/domain/Errors.h"
@@ -6,7 +6,7 @@
 using namespace lms::domain;
 using testutil::hoursAfter;
 
-TEST_CASE("FR-16: the HoD's queue lists assignments with work awaiting moderation") {
+TEST_CASE("FR-16: the HoD's queue lists assignments with work awaiting moderation", "[unit][service]") {
     ServiceFixture f;
     CHECK(f.moderation.queue(f.as(f.hod)).empty());
     f.submitAt(10);
@@ -18,7 +18,7 @@ TEST_CASE("FR-16: the HoD's queue lists assignments with work awaiting moderatio
     CHECK(f.moderation.queue(f.as(f.otherHod)).empty());
 }
 
-TEST_CASE("FR-16: approve, then FR-17: release makes the mark visible") {
+TEST_CASE("FR-16: approve, then FR-17: release makes the mark visible", "[unit][service]") {
     ServiceFixture f;
     int a = f.markedSubmission(70);
     int b = f.markedSubmission(55, f.student2);
@@ -38,7 +38,7 @@ TEST_CASE("FR-16: approve, then FR-17: release makes the mark visible") {
                       "There are no moderated marks to release for this assignment");
 }
 
-TEST_CASE("FR-16, FR-19: adjusting a mark needs a reason and is audited") {
+TEST_CASE("FR-16, FR-19: adjusting a mark needs a reason and is audited", "[unit][service]") {
     ServiceFixture f;
     int id = f.markedSubmission(70);
     Session hod = f.as(f.hod);
@@ -50,17 +50,17 @@ TEST_CASE("FR-16, FR-19: adjusting a mark needs a reason and is audited") {
 
     auto sub = f.submissions.findById(id);
     CHECK(sub->getStatus() == SubmissionStatus::Moderated);
-    CHECK(sub->getMark()->getFinalMark() == doctest::Approx(65));
+    CHECK(sub->getMark()->getFinalMark() == Catch::Approx(65));
     CHECK(sub->getMark()->getRawMark() == 70);  // the lecturer's raw mark is kept
     REQUIRE(f.auditLog.entries.size() == before + 1);
     const AuditEntry& e = f.auditLog.entries.back();
-    CHECK(*e.getOldValue() == doctest::Approx(70));
-    CHECK(e.getNewValue() == doctest::Approx(65));
+    CHECK(*e.getOldValue() == Catch::Approx(70));
+    CHECK(e.getNewValue() == Catch::Approx(65));
     CHECK(e.getChangedBy() == f.hod);
     CHECK(e.getReason() == "Marking was too generous");
 }
 
-TEST_CASE("BR-06: after release only the HoD can change a mark, with a reason") {
+TEST_CASE("BR-06: after release only the HoD can change a mark, with a reason", "[unit][service]") {
     ServiceFixture f;
     int id = f.markedSubmission(70);
     Session hod = f.as(f.hod);
@@ -70,11 +70,11 @@ TEST_CASE("BR-06: after release only the HoD can change a mark, with a reason") 
     f.moderation.adjust(hod, id, 72, "Appeal upheld");
     auto sub = f.submissions.findById(id);
     CHECK(sub->getStatus() == SubmissionStatus::Released);
-    CHECK(sub->getMark()->getFinalMark() == doctest::Approx(72));
+    CHECK(sub->getMark()->getFinalMark() == Catch::Approx(72));
     CHECK(f.auditLog.entries.back().getReason() == "Appeal upheld");
 }
 
-TEST_CASE("FR-21: the HoD returns work to the lecturer, who marks it again") {
+TEST_CASE("FR-21: the HoD returns work to the lecturer, who marks it again", "[unit][service]") {
     ServiceFixture f;
     int id = f.markedSubmission(70);
     Session hod = f.as(f.hod);
@@ -91,7 +91,7 @@ TEST_CASE("FR-21: the HoD returns work to the lecturer, who marks it again") {
     CHECK(f.moderation.queue(hod).size() == 1);
 }
 
-TEST_CASE("BR-05: an HoD can only moderate their own department") {
+TEST_CASE("BR-05: an HoD can only moderate their own department", "[unit][service]") {
     ServiceFixture f;
     int id = f.markedSubmission();
     Session other = f.as(f.otherHod);
@@ -108,7 +108,7 @@ TEST_CASE("BR-05: an HoD can only moderate their own department") {
     CHECK_THROWS_WITH(f.moderation.queue(f.as(spare)), "You are not the head of any department");
 }
 
-TEST_CASE("work that is not marked cannot be approved or adjusted") {
+TEST_CASE("work that is not marked cannot be approved or adjusted", "[unit][service]") {
     ServiceFixture f;
     int id = f.submitAt(10);
     Session hod = f.as(f.hod);
@@ -116,7 +116,7 @@ TEST_CASE("work that is not marked cannot be approved or adjusted") {
     CHECK_THROWS_WITH(f.moderation.adjust(hod, id, 50, "Why"), "This submission has not been marked yet");
 }
 
-TEST_CASE("FR-20: the audit log is limited to the HoD's department") {
+TEST_CASE("FR-20: the audit log is limited to the HoD's department", "[unit][service]") {
     ServiceFixture f;
     f.markedSubmission();
 

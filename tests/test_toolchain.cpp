@@ -1,4 +1,4 @@
-#include "doctest/doctest.h"
+#include "catch2/catch_amalgamated.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -7,15 +7,15 @@
 
 #include "data/Toolchain.h"
 
-TEST_CASE("libsodium initialises") {
+TEST_CASE("libsodium initialises", "[integration][build]") {
     CHECK(lms::data::initSodium());
 }
 
-TEST_CASE("SQLite is version 3") {
+TEST_CASE("SQLite is version 3", "[integration][build]") {
     CHECK(lms::data::sqliteVersion().rfind("3.", 0) == 0);
 }
 
-TEST_CASE("schema.sql loads into an empty database") {
+TEST_CASE("schema.sql loads into an empty database", "[integration][build]") {
     std::ifstream in(LMS_SCHEMA_PATH);
     REQUIRE(in.good());
     std::stringstream sql;

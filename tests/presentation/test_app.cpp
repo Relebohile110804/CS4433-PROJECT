@@ -1,5 +1,5 @@
 // Scripted console sessions: the menus are driven by typed input, as a user would.
-#include "doctest/doctest.h"
+#include "catch2/catch_amalgamated.hpp"
 
 #include <sstream>
 
@@ -59,7 +59,7 @@ bool contains(const std::string& text, const std::string& part) { return text.fi
 
 }  // namespace
 
-TEST_CASE("first run creates the administrator, who can then create a student") {
+TEST_CASE("first run creates the administrator, who can then create a student", "[system][ui]") {
     Program p;
     std::string out = p.run(
         "admin\nSystem Admin\nS001\nadmin-pass\n"   // first run
@@ -74,7 +74,7 @@ TEST_CASE("first run creates the administrator, who can then create a student") 
     CHECK(contains(out, "Goodbye."));
 }
 
-TEST_CASE("NFR-09: wrong input and errors are shown, and the program keeps going") {
+TEST_CASE("NFR-09: wrong input and errors are shown, and the program keeps going", "[system][ui]") {
     Program p;
     p.admin.createFirstAdministrator("admin", "System Admin", "S001", "admin-pass");
     std::string out = p.run(
@@ -89,14 +89,14 @@ TEST_CASE("NFR-09: wrong input and errors are shown, and the program keeps going
     CHECK(contains(out, "Goodbye."));
 }
 
-TEST_CASE("the program closes cleanly when the input ends in the middle of a menu") {
+TEST_CASE("the program closes cleanly when the input ends in the middle of a menu", "[system][ui]") {
     Program p;
     p.admin.createFirstAdministrator("admin", "System Admin", "S001", "admin-pass");
     std::string out = p.run("1\nadmin\nadmin-pass\n1\n");
     CHECK(contains(out, "Goodbye."));
 }
 
-TEST_CASE("a student sees their assignments and is told when a mark is not released") {
+TEST_CASE("a student sees their assignments and is told when a mark is not released", "[system][ui]") {
     Program p;
     p.admin.createFirstAdministrator("admin", "System Admin", "S001", "admin-pass");
     auto s = p.auth.login("admin", "admin-pass");
@@ -114,7 +114,7 @@ TEST_CASE("a student sees their assignments and is told when a mark is not relea
     CHECK(contains(out, "! You have not submitted this assignment"));
 }
 
-TEST_CASE("UC-09, UC-16, UC-20 through the menus with seeded data") {
+TEST_CASE("UC-09, UC-16, UC-20 through the menus with seeded data", "[system][ui]") {
     Program p;
     p.admin.createFirstAdministrator("admin", "System Admin", "S001", "admin-pass");
     auto s = p.auth.login("admin", "admin-pass");

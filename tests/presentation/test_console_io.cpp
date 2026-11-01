@@ -1,4 +1,4 @@
-#include "doctest/doctest.h"
+#include "catch2/catch_amalgamated.hpp"
 
 #include <sstream>
 
@@ -8,7 +8,7 @@
 using lms::presentation::ConsoleIO;
 using lms::presentation::InputClosed;
 
-TEST_CASE("NFR-09: a number prompt asks again until the input is valid") {
+TEST_CASE("NFR-09: a number prompt asks again until the input is valid", "[unit][ui]") {
     std::istringstream in("abc\n12x\n99\n\n7\n");
     std::ostringstream out;
     ConsoleIO io(in, out);
@@ -16,7 +16,7 @@ TEST_CASE("NFR-09: a number prompt asks again until the input is valid") {
     CHECK(out.str().find("Please type a whole number from 0 to 10.") != std::string::npos);
 }
 
-TEST_CASE("text input is trimmed and required text cannot be empty") {
+TEST_CASE("text input is trimmed and required text cannot be empty", "[unit][ui]") {
     std::istringstream in("  hello  \n   \nworld\n");
     std::ostringstream out;
     ConsoleIO io(in, out);
@@ -24,22 +24,22 @@ TEST_CASE("text input is trimmed and required text cannot be empty") {
     CHECK(io.requiredText("Name") == "world");
 }
 
-TEST_CASE("yes/no and decimal prompts") {
+TEST_CASE("yes/no and decimal prompts", "[unit][ui]") {
     std::istringstream in("maybe\nY\n-1\n62.5\n");
     std::ostringstream out;
     ConsoleIO io(in, out);
     CHECK(io.confirm("Save"));
-    CHECK(io.decimal("Mark", 0, 100) == doctest::Approx(62.5));
+    CHECK(io.decimal("Mark", 0, 100) == Catch::Approx(62.5));
 }
 
-TEST_CASE("the end of input stops the program instead of looping forever") {
+TEST_CASE("the end of input stops the program instead of looping forever", "[unit][ui]") {
     std::istringstream in("");
     std::ostringstream out;
     ConsoleIO io(in, out);
     CHECK_THROWS_AS(io.number("Choose", 0, 3), InputClosed);
 }
 
-TEST_CASE("BR-08: dates are typed and shown in Lesotho time (UTC+2) but kept in UTC") {
+TEST_CASE("BR-08: dates are typed and shown in Lesotho time (UTC+2) but kept in UTC", "[unit][ui]") {
     auto t = ConsoleIO::parseDateTime("2026-11-07 17:00");
     REQUIRE(t);
     CHECK(ConsoleIO::formatTime(*t) == "2026-11-07 17:00");
@@ -54,7 +54,7 @@ TEST_CASE("BR-08: dates are typed and shown in Lesotho time (UTC+2) but kept in 
     CHECK_FALSE(ConsoleIO::parseDateTime("7/11/2026 17:00"));
 }
 
-TEST_CASE("NFR-11: marks and long lines are formatted for an 80-column screen") {
+TEST_CASE("NFR-11: marks and long lines are formatted for an 80-column screen", "[unit][ui]") {
     CHECK(ConsoleIO::formatMark(75) == "75");
     CHECK(ConsoleIO::formatMark(62.5) == "62.5");
     CHECK(ConsoleIO::fit(std::string(100, 'x')).size() == 80);

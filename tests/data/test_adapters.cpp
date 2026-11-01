@@ -1,4 +1,4 @@
-#include "doctest/doctest.h"
+#include "catch2/catch_amalgamated.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -30,7 +30,7 @@ struct TempDir {
 };
 }  // namespace
 
-TEST_CASE("Argon2id hash verifies the right password only (NFR-04)") {
+TEST_CASE("Argon2id hash verifies the right password only (NFR-04)", "[integration][data]") {
     SodiumPasswordHasher hasher;
     std::string h = hasher.hash("Secret123");
     CHECK(h.rfind("$argon2id$", 0) == 0);  // the algorithm is recorded in the hash
@@ -40,23 +40,23 @@ TEST_CASE("Argon2id hash verifies the right password only (NFR-04)") {
     CHECK_FALSE(hasher.verify("not a hash", "Secret123"));
 }
 
-TEST_CASE("the same password gives a different hash each time (random salt)") {
+TEST_CASE("the same password gives a different hash each time (random salt)", "[integration][data]") {
     SodiumPasswordHasher hasher;
     CHECK(hasher.hash("Secret123") != hasher.hash("Secret123"));
 }
 
-TEST_CASE("hashing plus verifying takes under 2 seconds (NFR-01, R11)") {
+TEST_CASE("hashing plus verifying takes under 2 seconds (NFR-01, R11)", "[integration][data]") {
     SodiumPasswordHasher hasher;
     auto start = std::chrono::steady_clock::now();
     std::string h = hasher.hash("Secret123");
     bool ok = hasher.verify(h, "Secret123");
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-    MESSAGE("Argon2id hash + verify took " << ms << " ms");
+    WARN("Argon2id hash + verify took " << ms << " ms");
     CHECK(ok);
     CHECK(ms < 2000);
 }
 
-TEST_CASE("file store copies the file and keeps its extension") {
+TEST_CASE("file store copies the file and keeps its extension", "[integration][data]") {
     TempDir tmp;
     std::string source = tmp.write("essay.pdf", "my essay");
     LocalFileStore store((tmp.path / "submissions").string());
@@ -74,14 +74,14 @@ TEST_CASE("file store copies the file and keeps its extension") {
     CHECK_NOTHROW(store.remove(stored));  // removing twice is harmless
 }
 
-TEST_CASE("missing files and folders are not readable files") {
+TEST_CASE("missing files and folders are not readable files", "[integration][data]") {
     TempDir tmp;
     LocalFileStore store((tmp.path / "submissions").string());
     CHECK_FALSE(store.isReadableFile((tmp.path / "nothing.pdf").string()));
     CHECK_FALSE(store.isReadableFile(tmp.path.string()));
 }
 
-TEST_CASE("SHA-256 matches the known value (FR-11)") {
+TEST_CASE("SHA-256 matches the known value (FR-11)", "[integration][data]") {
     TempDir tmp;
     LocalFileStore store((tmp.path / "submissions").string());
     CHECK(store.sha256(tmp.write("abc.txt", "abc")) ==
@@ -91,7 +91,7 @@ TEST_CASE("SHA-256 matches the known value (FR-11)") {
     CHECK_THROWS(store.sha256((tmp.path / "missing.txt").string()));
 }
 
-TEST_CASE("system clock is close to the real time") {
+TEST_CASE("system clock is close to the real time", "[integration][data]") {
     SystemClock clock;
     auto diff = std::chrono::system_clock::now() - clock.now();
     CHECK(std::chrono::abs(diff) < std::chrono::seconds(1));

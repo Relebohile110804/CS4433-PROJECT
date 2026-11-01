@@ -1,4 +1,4 @@
-#include "doctest/doctest.h"
+#include "catch2/catch_amalgamated.hpp"
 
 #include "../TestHelpers.h"
 #include "business/domain/AuditEntry.h"
@@ -22,7 +22,7 @@ Submission marked() {
 }
 }  // namespace
 
-TEST_CASE("a new submission is Submitted when on time and Late otherwise (Figure 5)") {
+TEST_CASE("a new submission is Submitted when on time and Late otherwise (Figure 5)", "[unit][domain]") {
     CHECK(Submission::createNew(1, 10, version(1), 0).getStatus() == SubmissionStatus::Submitted);
     Submission late = Submission::createNew(1, 10, version(1), 2);
     CHECK(late.getStatus() == SubmissionStatus::Late);
@@ -30,7 +30,7 @@ TEST_CASE("a new submission is Submitted when on time and Late otherwise (Figure
     CHECK_THROWS_AS(Submission::createNew(1, 10, version(2), 0), RuleViolation);
 }
 
-TEST_CASE("resubmission before the deadline adds a version and keeps the old one (BR-04)") {
+TEST_CASE("resubmission before the deadline adds a version and keeps the old one (BR-04)", "[unit][domain]") {
     Submission s = Submission::createNew(1, 10, version(1), 0);
     s.addVersion(version(2, 1), 0);
     CHECK(s.getVersions().size() == 2);
@@ -39,23 +39,23 @@ TEST_CASE("resubmission before the deadline adds a version and keeps the old one
     CHECK_THROWS_AS(s.addVersion(version(4), 0), RuleViolation);  // numbers must follow on
 }
 
-TEST_CASE("work submitted on time cannot be replaced after the deadline (BR-02)") {
+TEST_CASE("work submitted on time cannot be replaced after the deadline (BR-02)", "[unit][domain]") {
     Submission s = Submission::createNew(1, 10, version(1), 0);
     CHECK_THROWS_AS(s.addVersion(version(2), 1), RuleViolation);
     CHECK(s.getVersions().size() == 1);
 }
 
-TEST_CASE("a late submission cannot be replaced (BR-02)") {
+TEST_CASE("a late submission cannot be replaced (BR-02)", "[unit][domain]") {
     Submission s = Submission::createNew(1, 10, version(1), 1);
     CHECK_THROWS_AS(s.addVersion(version(2), 1), RuleViolation);
 }
 
-TEST_CASE("marked work cannot be resubmitted") {
+TEST_CASE("marked work cannot be resubmitted", "[unit][domain]") {
     Submission s = marked();
     CHECK_THROWS_AS(s.addVersion(version(2), 0), RuleViolation);
 }
 
-TEST_CASE("full path: mark, approve, release") {
+TEST_CASE("full path: mark, approve, release", "[unit][domain]") {
     Submission s = marked();
     CHECK(s.getStatus() == SubmissionStatus::Marked);
     CHECK_FALSE(s.isVisibleToStudent());
@@ -68,21 +68,21 @@ TEST_CASE("full path: mark, approve, release") {
     CHECK(s.isVisibleToStudent());
 }
 
-TEST_CASE("a late submission can be marked") {
+TEST_CASE("a late submission can be marked", "[unit][domain]") {
     Submission s = Submission::createNew(1, 10, version(1), 2);
     s.recordMark(mark(70, 20));
     CHECK(s.getStatus() == SubmissionStatus::Marked);
-    CHECK(s.getMark()->getFinalMark() == doctest::Approx(50));
+    CHECK(s.getMark()->getFinalMark() == Catch::Approx(50));
 }
 
-TEST_CASE("the lecturer can correct a mark before moderation") {
+TEST_CASE("the lecturer can correct a mark before moderation", "[unit][domain]") {
     Submission s = marked();
     s.recordMark(mark(80));
     CHECK(s.getMark()->getRawMark() == 80);
     CHECK(s.getStatus() == SubmissionStatus::Marked);
 }
 
-TEST_CASE("return for re-marking needs a comment, then re-marking goes back to Marked (UC-21)") {
+TEST_CASE("return for re-marking needs a comment, then re-marking goes back to Marked (UC-21)", "[unit][domain]") {
     Submission s = marked();
     CHECK_THROWS_AS(s.returnToLecturer("  "), RuleViolation);
     s.returnToLecturer("Check question 3");
@@ -93,18 +93,18 @@ TEST_CASE("return for re-marking needs a comment, then re-marking goes back to M
     CHECK(s.getStatus() == SubmissionStatus::Marked);
 }
 
-TEST_CASE("HoD adjustment moderates the mark, and is allowed after release (BR-06)") {
+TEST_CASE("HoD adjustment moderates the mark, and is allowed after release (BR-06)", "[unit][domain]") {
     Submission s = marked();
     s.adjust(60, 3, base());
     CHECK(s.getStatus() == SubmissionStatus::Moderated);
-    CHECK(s.getMark()->getFinalMark() == doctest::Approx(60));
+    CHECK(s.getMark()->getFinalMark() == Catch::Approx(60));
     s.release(base());
     s.adjust(62, 3, base());
     CHECK(s.getStatus() == SubmissionStatus::Released);
-    CHECK(s.getMark()->getFinalMark() == doctest::Approx(62));
+    CHECK(s.getMark()->getFinalMark() == Catch::Approx(62));
 }
 
-TEST_CASE("transitions not in the state machine are refused") {
+TEST_CASE("transitions not in the state machine are refused", "[unit][domain]") {
     Submission fresh = Submission::createNew(1, 10, version(1), 0);
     CHECK_THROWS_AS(fresh.approve(3, base()), RuleViolation);
     CHECK_THROWS_AS(fresh.adjust(50, 3, base()), RuleViolation);
@@ -122,7 +122,7 @@ TEST_CASE("transitions not in the state machine are refused") {
     CHECK_THROWS_AS(s.release(base()), RuleViolation);
 }
 
-TEST_CASE("mark and version values are checked") {
+TEST_CASE("mark and version values are checked", "[unit][domain]") {
     CHECK_THROWS_AS(Mark(-1, 0, 0, "fb", 2, base()), RuleViolation);
     CHECK_THROWS_AS(Mark(50, 0, 50, " ", 2, base()), RuleViolation);
     CHECK_THROWS_AS(SubmissionVersion(1, "f.pdf", "abc", base()), RuleViolation);
@@ -130,10 +130,10 @@ TEST_CASE("mark and version values are checked") {
     CHECK_THROWS_AS(SubmissionVersion(1, "f.pdf", std::string(64, 'z'), base()), RuleViolation);
 }
 
-TEST_CASE("an audit entry needs a reason and keeps the old value") {
+TEST_CASE("an audit entry needs a reason and keeps the old value", "[unit][domain]") {
     AuditEntry first(0, 1, 2, base(), std::nullopt, 70, "initial marking");
     CHECK_FALSE(first.getOldValue().has_value());
     AuditEntry change(0, 1, 3, base(), 70.0, 60, "Moderation");
-    CHECK(*change.getOldValue() == doctest::Approx(70));
+    CHECK(*change.getOldValue() == Catch::Approx(70));
     CHECK_THROWS_AS(AuditEntry(0, 1, 2, base(), std::nullopt, 70, ""), RuleViolation);
 }

@@ -1,7 +1,7 @@
 // NFR-01 to NFR-03 and R8: the list screens are timed on a database seeded to the full
 // school size from the SRS: 800 students, 60 staff, 100 courses, 500 assignments and
 // 20,000 submissions. Each screen must answer within 1 second (NFR-02).
-#include "doctest/doctest.h"
+#include "catch2/catch_amalgamated.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -37,10 +37,19 @@ double millisecondsFor(const std::function<void()>& work) {
 
 }  // namespace
 
-TEST_CASE("NFR-02, NFR-03: list screens answer within 1 second at full school size") {
+TEST_CASE("NFR-02, NFR-03: list screens answer within 1 second at full school size", "[system][performance]") {
     // A real file, not an in-memory database, so the disk is part of the timing.
     std::filesystem::path file = std::filesystem::temp_directory_path() / "lms_performance_test.db";
     std::filesystem::remove(file);
+    // Declared before the database so it runs after the database is closed: Windows cannot
+    // delete a file that is still open (defect found on the development laptop).
+    struct RemoveAtEnd {
+        std::filesystem::path path;
+        ~RemoveAtEnd() {
+            std::error_code ec;
+            std::filesystem::remove(path, ec);
+        }
+    } cleanup{file};
     data::Database db(file.string());
     data::SqliteUserRepository users(db);
     data::SqliteCourseRepository courses(db);
@@ -102,7 +111,7 @@ TEST_CASE("NFR-02, NFR-03: list screens answer within 1 second at full school si
         }
         t->commit();
     });
-    MESSAGE("Seeding 20,000 submissions took " << seedMs << " ms");
+    WARN("Seeding 20,000 submissions took " << seedMs << " ms");
     REQUIRE(markedCount == 2000);
 
     auto session = [&](int id) { return Session(std::shared_ptr<const User>(users.findById(id)), clock.now()); };
@@ -114,7 +123,7 @@ TEST_CASE("NFR-02, NFR-03: list screens answer within 1 second at full school si
     double worst = 0;
     auto timeScreen = [&](const std::string& name, const std::function<void()>& work) {
         double ms = millisecondsFor(work);
-        MESSAGE(name << ": " << ms << " ms");
+        WARN(name << ": " << ms << " ms");
         worst = std::max(worst, ms);
     };
     timeScreen("Find user at login", [&] { CHECK(users.findByUsername("s799")); });
@@ -125,5 +134,4 @@ TEST_CASE("NFR-02, NFR-03: list screens answer within 1 second at full school si
     timeScreen("Audit log, whole school", [&] { CHECK(audit.viewLog(admin, std::nullopt, std::nullopt).size() == 2000); });
     timeScreen("Audit log, one department", [&] { CHECK(audit.viewLog(hod, std::nullopt, std::nullopt).size() == 400); });
     CHECK(worst < 1000.0);
-    std::filesystem::remove(file);
 }

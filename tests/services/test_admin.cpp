@@ -1,4 +1,4 @@
-#include "doctest/doctest.h"
+#include "catch2/catch_amalgamated.hpp"
 
 #include <filesystem>
 
@@ -43,7 +43,7 @@ struct AdminFixture {
 
 }  // namespace
 
-TEST_CASE("first run creates one administrator and only once") {
+TEST_CASE("first run creates one administrator and only once", "[unit][service]") {
     fakes::FakeUserRepository users;
     fakes::FakeCourseRepository courses;
     fakes::FakePasswordHasher hasher;
@@ -57,7 +57,7 @@ TEST_CASE("first run creates one administrator and only once") {
                       "An administrator already exists");
 }
 
-TEST_CASE("FR-04: the administrator creates users who can then log in") {
+TEST_CASE("FR-04: the administrator creates users who can then log in", "[unit][service]") {
     AdminFixture f;
     Session s = f.auth.login("stu", "password1");
     CHECK(s.getUser().getRole() == Role::Student);
@@ -65,7 +65,7 @@ TEST_CASE("FR-04: the administrator creates users who can then log in") {
     CHECK(f.users.findById(f.student)->getPasswordHash() == "hashed:password1");
 }
 
-TEST_CASE("FR-04: new users are checked before they are saved") {
+TEST_CASE("FR-04: new users are checked before they are saved", "[unit][service]") {
     AdminFixture f;
     Session s = f.asAdmin();
     CHECK_THROWS_WITH(f.admin.createUser(s, Role::Student, "stu", "Other", "2023002", "password1"),
@@ -81,7 +81,7 @@ TEST_CASE("FR-04: new users are checked before they are saved") {
     CHECK(f.admin.listUsers(s, Role::Student).size() == 1);
 }
 
-TEST_CASE("BR-05: only the administrator can use the admin service") {
+TEST_CASE("BR-05: only the administrator can use the admin service", "[unit][service]") {
     AdminFixture f;
     Session lect = f.asLecturer();
     CHECK_THROWS_AS(f.admin.createUser(lect, Role::Student, "x", "X", "1", "password1"), AccessDenied);
@@ -90,7 +90,7 @@ TEST_CASE("BR-05: only the administrator can use the admin service") {
     CHECK_THROWS_AS(f.admin.backup(lect, "backup.db"), AccessDenied);
 }
 
-TEST_CASE("FR-04: editing, resetting and deactivating users") {
+TEST_CASE("FR-04: editing, resetting and deactivating users", "[unit][service]") {
     AdminFixture f;
     Session s = f.asAdmin();
 
@@ -110,7 +110,7 @@ TEST_CASE("FR-04: editing, resetting and deactivating users") {
     CHECK_THROWS_WITH(f.admin.updateUser(s, 999, "Nobody"), "User not found");
 }
 
-TEST_CASE("FR-05: departments need a free, active Head of Department") {
+TEST_CASE("FR-05: departments need a free, active Head of Department", "[unit][service]") {
     AdminFixture f;
     Session s = f.asAdmin();
     int dept = f.department();
@@ -131,7 +131,7 @@ TEST_CASE("FR-05: departments need a free, active Head of Department") {
     CHECK(d->getHodId() == hod2);
 }
 
-TEST_CASE("FR-05: courses have a unique code inside an existing department") {
+TEST_CASE("FR-05: courses have a unique code inside an existing department", "[unit][service]") {
     AdminFixture f;
     Session s = f.asAdmin();
     int dept = f.department();
@@ -148,7 +148,7 @@ TEST_CASE("FR-05: courses have a unique code inside an existing department") {
     CHECK(f.admin.listCourses(s).size() == 2);
 }
 
-TEST_CASE("FR-06 and FR-07: lecturers and students are linked to courses") {
+TEST_CASE("FR-06 and FR-07: lecturers and students are linked to courses", "[unit][service]") {
     AdminFixture f;
     Session s = f.asAdmin();
     int course = f.admin.createCourse(s, f.department(), "CS4433", "Software Engineering");
@@ -175,7 +175,7 @@ TEST_CASE("FR-06 and FR-07: lecturers and students are linked to courses") {
     CHECK_THROWS_WITH(f.admin.enrolStudent(s, course, f.student), "Ann Student is deactivated");
 }
 
-TEST_CASE("FR-23: backup and restore pass the file name to the database") {
+TEST_CASE("FR-23: backup and restore pass the file name to the database", "[unit][service]") {
     AdminFixture f;
     Session s = f.asAdmin();
     f.admin.backup(s, "lms_backup.db");
@@ -185,7 +185,7 @@ TEST_CASE("FR-23: backup and restore pass the file name to the database") {
     CHECK_THROWS_WITH(f.admin.backup(s, " "), "Please give a file name for the backup");
 }
 
-TEST_CASE("FR-23: a real backup brings back data deleted after it was taken") {
+TEST_CASE("FR-23: a real backup brings back data deleted after it was taken", "[unit][service]") {
     namespace fs = std::filesystem;
     fs::path file = fs::temp_directory_path() / "lms_admin_backup_test.db";
     fs::remove(file);

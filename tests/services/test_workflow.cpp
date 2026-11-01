@@ -1,6 +1,6 @@
 // The three dressed use cases run end to end on the real SQLite database and
 // file store: UC-09 Submit, UC-16 Mark, UC-20 Moderate and Release.
-#include "doctest/doctest.h"
+#include "catch2/catch_amalgamated.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -86,7 +86,7 @@ struct RealSchool {
 
 }  // namespace
 
-TEST_CASE("UC-09, UC-16, UC-20 from submission to released mark") {
+TEST_CASE("UC-09, UC-16, UC-20 from submission to released mark", "[integration][workflow]") {
     RealSchool s;
     int a = s.assignments->createAssignment(s.as(s.lecturer), s.course, "Project", "Build it", hoursAfter(48), 100);
 
@@ -108,7 +108,7 @@ TEST_CASE("UC-09, UC-16, UC-20 from submission to released mark") {
     int benSub = s.submissions.find(a, s.ben)->getId();
     s.marking->mark(s.as(s.lecturer), annSub, 75, "Well structured", "");
     s.marking->mark(s.as(s.lecturer), benSub, 80, "Strong, but late", "");
-    CHECK(s.submissions.findById(benSub)->getMark()->getFinalMark() == doctest::Approx(60));
+    CHECK(s.submissions.findById(benSub)->getMark()->getFinalMark() == Catch::Approx(60));
     CHECK_THROWS_WITH(s.submitting->viewReleasedMark(s.as(s.ann), a), "Your mark has not been released yet");
 
     // UC-20: the HoD approves Ann, adjusts Ben, and releases both.
@@ -118,17 +118,17 @@ TEST_CASE("UC-09, UC-16, UC-20 from submission to released mark") {
     s.moderation->adjust(hod, benSub, 62, "Penalty rounding agreed with lecturer");
     CHECK(s.moderation->release(hod, a) == 2);
 
-    CHECK(s.submitting->viewReleasedMark(s.as(s.ann), a).getFinalMark() == doctest::Approx(75));
-    CHECK(s.submitting->viewReleasedMark(s.as(s.ben), a).getFinalMark() == doctest::Approx(62));
+    CHECK(s.submitting->viewReleasedMark(s.as(s.ann), a).getFinalMark() == Catch::Approx(75));
+    CHECK(s.submitting->viewReleasedMark(s.as(s.ben), a).getFinalMark() == Catch::Approx(62));
 
     // FR-19, FR-20: two first marks and one adjustment are in the audit log.
     auto log = s.audit->viewLog(hod, s.course, a);
     REQUIRE(log.size() == 3);
     CHECK(log[2].getReason() == "Penalty rounding agreed with lecturer");
-    CHECK(*log[2].getOldValue() == doctest::Approx(60));
+    CHECK(*log[2].getOldValue() == Catch::Approx(60));
 }
 
-TEST_CASE("BR-07: a failed audit write rolls back the mark in SQLite") {
+TEST_CASE("BR-07: a failed audit write rolls back the mark in SQLite", "[integration][workflow]") {
     RealSchool s;
     int a = s.assignments->createAssignment(s.as(s.lecturer), s.course, "Project", "Build it", hoursAfter(48), 100);
     s.clock.set(hoursAfter(10));

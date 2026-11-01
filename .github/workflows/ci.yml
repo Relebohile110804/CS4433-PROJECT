@@ -13,7 +13,22 @@ jobs:
         run: cmake -S . -B build -DLMS_COVERAGE=ON
       - name: Build
         run: cmake --build build -j
+      # One CTest entry per V-Model level: unit, integration and system tests.
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Full test results
+        run: ./build/lms_tests --reporter junit --out test-results.xml
+      # Exit criterion from the test plan: business-layer line coverage of at least 70% (NFR-12).
       - name: Coverage of the business layer
-        run: gcovr -r . --filter src/business/ build
+        run: |
+          mkdir -p coverage
+          gcovr -r . --filter src/business/ --fail-under-line 70 --html-details coverage/index.html build
+          gcovr -r . --filter src/business/ build
+      - name: Save test results and coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-and-coverage
+          path: |
+            test-results.xml
+            coverage/
