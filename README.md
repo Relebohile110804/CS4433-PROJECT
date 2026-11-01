@@ -13,7 +13,7 @@ built as a closed layered architecture (see the Week Three design document).
 | `src/data/` | Data Access: SQLite repositories, transactions, file store, password hasher, clock |
 | `src/main.cpp` | Composition root: creates the concrete classes and wires them together |
 | `database/schema.sql` | Database schema (Week Three, Section 4.3) |
-| `tests/` | Automated tests (Catch2), tagged [unit], [integration] or [system] |
+| `tests/` | Automated tests (Catch2), tagged [unit], [integration], [system] or [acceptance] |
 | `third_party/catch2/` | Catch2 v3.7.1, amalgamated single-file build |
 
 Each layer is its own library in CMake, and a layer only links the one below it, so a call that skips a layer fails to build.
@@ -82,9 +82,14 @@ The tests use Catch2 and are tagged by V-Model level, so one level can be run on
 lms_tests "[unit]"
 lms_tests "[integration]"
 lms_tests "[system]"
+lms_tests "[acceptance]"
 ```
 
+The system tests (ST-xx) and acceptance tests (AT-xx) in tests/system run the real menus with a real database file in a temporary folder. ST-45 (NFR-08) kills a child process, so it runs on Linux only and is skipped on Windows.
+
 Timing results (Argon2id and the full-size performance test) are printed as Catch2 "warning" messages; they are information, not failures.
+
+When the program meets a database or file error it tells the user and also writes the error, with the time in UTC, to lms-errors.log next to lms.db.
 
 Business-layer coverage (NFR-12 target: 70% of lines) is measured on Linux with gcov, which is also what CI runs:
 

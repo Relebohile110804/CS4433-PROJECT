@@ -12,6 +12,7 @@
 #include "business/services/SubmissionService.h"
 #include "business/services/TenPercentPerDayPolicy.h"
 #include "data/Database.h"
+#include "data/FileErrorLog.h"
 #include "data/LocalFileStore.h"
 #include "data/SodiumPasswordHasher.h"
 #include "data/SqliteAssignmentRepository.h"
@@ -40,6 +41,7 @@ int main() {
         data::SodiumPasswordHasher hasher;
         data::LocalFileStore files("submissions");
         data::SystemClock clock;
+        data::FileErrorLog errorLog("lms-errors.log", clock);
 
         // Business Logic
         services::TenPercentPerDayPolicy policy;
@@ -53,7 +55,7 @@ int main() {
 
         // Presentation
         presentation::ConsoleIO io(std::cin, std::cout);
-        presentation::App app({auth, admin, assignmentService, submitting, marking, moderation, audit}, io);
+        presentation::App app({auth, admin, assignmentService, submitting, marking, moderation, audit}, io, &errorLog);
         app.run();
     } catch (const std::exception& e) {
         std::cerr << "The program had to stop: " << e.what() << "\n";

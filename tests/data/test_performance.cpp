@@ -106,7 +106,7 @@ TEST_CASE("NFR-02, NFR-03: list screens answer within 1 second at full school si
                     ++markedCount;
                 }
                 int id = submissions.save(sub);
-                if (k < 4) auditRepo.append(AuditEntry(0, id, lecturers[0], hoursAfter(100), std::nullopt, 70, "First mark"));
+                if (k < 4) auditRepo.append(AuditEntry(0, id, lecturers[0], hoursAfter(100), std::nullopt, 70, "Initial marking"));
             }
         }
         t->commit();

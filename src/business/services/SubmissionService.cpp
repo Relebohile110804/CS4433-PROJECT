@@ -42,6 +42,25 @@ int SubmissionService::previewDaysLate(const Session& s, int assignmentId) {
     return policy_.daysLate(a.effectiveDeadlineFor(s.getUser().getId()), clock_.now());
 }
 
+void SubmissionService::checkCanSubmit(const Session& s, int assignmentId) {
+    Assignment a = ownAssignment(s, assignmentId);
+    std::optional<Submission> existing = submissions_.find(assignmentId, s.getUser().getId());
+    if (!existing) return;  // BR-02: a first submission is always accepted, even late
+    if (existing->getStatus() == SubmissionStatus::Late)
+        throw RuleViolation("A late submission cannot be replaced (BR-02)");
+    if (existing->getStatus() != SubmissionStatus::Submitted)
+        throw RuleViolation("This work has already been marked, so it cannot be submitted again");
+    if (policy_.daysLate(a.effectiveDeadlineFor(s.getUser().getId()), clock_.now()) > 0)
+        throw RuleViolation("The deadline has passed, so the version already submitted stands (BR-02)");
+}
+
+void SubmissionService::validateFile(const std::string& filePath) { checkFile(filePath); }
+
+int SubmissionService::penaltyPercent(int daysLate) const {
+    // Worked out from the policy itself, so the message always matches BR-01.
+    return static_cast<int>(100 - policy_.finalMark(100, 100, daysLate) + 0.5);
+}
+
 SubmissionVersion SubmissionService::submit(const Session& s, int assignmentId, const std::string& filePath) {
     Assignment a = ownAssignment(s, assignmentId);
     int studentId = s.getUser().getId();

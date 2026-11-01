@@ -71,7 +71,7 @@ void App::adminUsers(const Session& s) {
                 auto users = s_.admin.listUsers(s, std::nullopt);
                 io_.heading("All users (" + std::to_string(users.size()) + ")");
                 for (const auto& u : users)
-                    io_.say(ConsoleIO::fit(u->getFullName() + "  " + u->getPersonNumber() + "  " + u->getUsername() +
+                    io_.say((u->getFullName() + "  " + u->getPersonNumber() + "  " + u->getUsername() +
                                            "  " + displayName(u->getRole()) + (u->isActive() ? "" : "  [deactivated]")));
                 break;
             }
@@ -145,7 +145,7 @@ void App::adminCourses(const Session& s) {
                     io_.heading(d.getName() + ", HoD: " + s_.auth.nameOf(s, d.getHodId()));
                     for (const Course& c : courses)
                         if (c.getDepartmentId() == d.getId())
-                            io_.say(ConsoleIO::fit("  " + c.getCode() + "  " + c.getTitle() + "  (" +
+                            io_.say(("  " + c.getCode() + "  " + c.getTitle() + "  (" +
                                                    std::to_string(c.getLecturerIds().size()) + " lecturers, " +
                                                    std::to_string(c.getStudentIds().size()) + " students)"));
                 }

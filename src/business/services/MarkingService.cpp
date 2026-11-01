@@ -51,7 +51,7 @@ void MarkingService::mark(const Session& s, int submissionId, int rawMark, const
     sub->recordMark(Mark(rawMark, p.penalty, p.finalMark, feedback, s.getUser().getId(), clock_.now()));
     auto t = tx_.begin();  // BR-07: the mark and its audit entry are saved together or not at all
     submissions_.save(*sub);
-    audit_.record(submissionId, s.getUser().getId(), oldValue, p.finalMark, oldValue ? reason : "First mark");
+    audit_.record(submissionId, s.getUser().getId(), oldValue, p.finalMark, oldValue ? reason : "Initial marking");
     t->commit();
 }
 

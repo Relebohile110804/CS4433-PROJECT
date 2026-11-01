@@ -26,6 +26,9 @@ public:
           tx_(tx) {}
 
     int previewDaysLate(const domain::Session& s, int assignmentId) override;
+    void checkCanSubmit(const domain::Session& s, int assignmentId) override;
+    void validateFile(const std::string& filePath) override;
+    int penaltyPercent(int daysLate) const override;
     domain::SubmissionVersion submit(const domain::Session& s, int assignmentId, const std::string& filePath) override;
     std::optional<domain::Submission> findOwn(const domain::Session& s, int assignmentId) override;
     domain::Mark viewReleasedMark(const domain::Session& s, int assignmentId) override;

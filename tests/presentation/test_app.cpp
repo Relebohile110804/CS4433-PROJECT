@@ -136,7 +136,7 @@ TEST_CASE("UC-09, UC-16, UC-20 through the menus with seeded data", "[system][ui
     CHECK(contains(out, "Version 1"));
     p.clock.set(testutil::hoursAfter(50));
     out = p.run("1\nben\npassword1\n2\n1\nC:\\work\\ben.docx\ny\n0\n0\n");
-    CHECK(contains(out, "This submission will be 1 day(s) late"));
+    CHECK(contains(out, "This submission is 1 day late: 10% of the maximum mark will be deducted."));
     CHECK(contains(out, "== Receipt =="));
 
     // UC-16: the lecturer marks both; Ben's penalty is shown before saving.

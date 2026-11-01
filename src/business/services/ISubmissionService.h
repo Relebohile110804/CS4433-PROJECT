@@ -13,6 +13,14 @@ public:
     virtual ~ISubmissionService() = default;
     // FR-13: how many days late a submission made now would be (shown before the student confirms).
     virtual int previewDaysLate(const domain::Session& s, int assignmentId) = 0;
+    // UC-09 step 2 (E2, E3): throws RuleViolation if the student may not hand in work for
+    // this assignment now, so the student is told before choosing a file.
+    virtual void checkCanSubmit(const domain::Session& s, int assignmentId) = 0;
+    // UC-09 step 3 (E1): throws RuleViolation if the file is missing, unreadable, too large
+    // or not an allowed type.
+    virtual void validateFile(const std::string& filePath) = 0;
+    // BR-01: the share of the maximum mark lost for this many days late, from 0 to 100.
+    virtual int penaltyPercent(int daysLate) const = 0;
     // FR-11, FR-12: stores the file and records a new version (Figure 7).
     virtual domain::SubmissionVersion submit(const domain::Session& s, int assignmentId,
                                              const std::string& filePath) = 0;

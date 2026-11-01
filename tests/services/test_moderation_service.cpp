@@ -84,7 +84,7 @@ TEST_CASE("FR-21: the HoD returns work to the lecturer, who marks it again", "[u
     auto sub = f.submissions.findById(id);
     CHECK(sub->getStatus() == SubmissionStatus::Returned);
     CHECK(sub->getHodComment() == "Please check question 3");
-    CHECK(f.moderation.queue(hod).empty());  // nothing is awaiting moderation now
+    CHECK(f.moderation.queue(hod).size() == 1);  // still listed, so the HoD can follow it (BR-06)
 
     f.marking.mark(f.as(f.lecturer), id, 64, "Question 3 was wrong", "Re-marked after HoD comment");
     CHECK(f.submissions.findById(id)->getStatus() == SubmissionStatus::Marked);

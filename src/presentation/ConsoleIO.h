@@ -42,11 +42,21 @@ public:
     // Shows numbered options and returns the choice: 1..n, or 0 for the last line (Back, Cancel or Log out).
     int menu(const std::string& title, const std::vector<std::string>& options, const std::string& zeroLabel = "Back");
 
+    // An option with extra lines shown under it, for lists that need more than one line per row.
+    struct Option {
+        std::string line;
+        std::vector<std::string> details;
+    };
+    int detailedMenu(const std::string& title, const std::vector<Option>& options, const std::string& zeroLabel = "Back");
+
     static std::string formatTime(domain::TimePoint t);
     static std::optional<domain::TimePoint> parseDateTime(const std::string& text);
     static std::string formatMark(double mark);
-    // Cuts text that would run past the given width.
+    // Cuts text that would run past the given width (used for one-line menu rows and headings).
     static std::string fit(const std::string& text, std::size_t width = Width);
+    // Breaks text into lines of at most the given width, at spaces where possible. Each
+    // continuation line is indented 4 spaces more than the first (NFR-11).
+    static std::vector<std::string> wrap(const std::string& text, std::size_t width = Width);
 
 private:
     std::string readLine();

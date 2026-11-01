@@ -1,5 +1,6 @@
 #include "presentation/ConsoleIO.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <iostream>
 #include <regex>
@@ -54,12 +55,16 @@ std::string ConsoleIO::readLine() {
 
 void ConsoleIO::heading(const std::string& title) { out_ << "\n" << fit("== " + title + " ==") << "\n"; }
 
-void ConsoleIO::say(const std::string& line) { out_ << line << "\n"; }
+void ConsoleIO::say(const std::string& line) {
+    for (const std::string& part : wrap(line)) out_ << part << "\n";
+}
 
-void ConsoleIO::error(const std::string& message) { out_ << fit("! " + message) << "\n"; }
+void ConsoleIO::error(const std::string& message) { say("! " + message); }
 
 std::string ConsoleIO::text(const std::string& prompt) {
-    out_ << prompt << ": " << std::flush;
+    std::vector<std::string> lines = wrap(prompt + ":");
+    for (std::size_t i = 0; i + 1 < lines.size(); ++i) out_ << lines[i] << "\n";
+    out_ << lines.back() << " " << std::flush;
     return trim(readLine());
 }
 
@@ -121,6 +126,16 @@ int ConsoleIO::menu(const std::string& title, const std::vector<std::string>& op
     return number("Choose", 0, static_cast<int>(options.size()));
 }
 
+int ConsoleIO::detailedMenu(const std::string& title, const std::vector<Option>& options, const std::string& zeroLabel) {
+    heading(title);
+    for (std::size_t i = 0; i < options.size(); ++i) {
+        say(fit("  " + std::to_string(i + 1) + ". " + options[i].line));
+        for (const std::string& d : options[i].details) say("     " + d);
+    }
+    say("  0. " + zeroLabel);
+    return number("Choose", 0, static_cast<int>(options.size()));
+}
+
 std::optional<domain::TimePoint> ConsoleIO::parseDateTime(const std::string& text) {
     static const std::regex pattern(R"((\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}))");
     std::smatch m;
@@ -163,6 +178,26 @@ std::string ConsoleIO::formatMark(double mark) {
 std::string ConsoleIO::fit(const std::string& text, std::size_t width) {
     if (text.size() <= width) return text;
     return text.substr(0, width - 3) + "...";
+}
+
+std::vector<std::string> ConsoleIO::wrap(const std::string& text, std::size_t width) {
+    std::size_t lead = text.find_first_not_of(' ');
+    std::string indent(std::min<std::size_t>(lead == std::string::npos ? 0 : lead, width / 2) + 4, ' ');
+    std::vector<std::string> lines;
+    std::string rest = text;
+    while (rest.size() > width) {
+        std::size_t cut = rest.find_last_of(' ', width);
+        bool atSpace = cut != std::string::npos && cut > indent.size();
+        if (!atSpace) cut = width;  // one long word: cut it
+        std::string line = rest.substr(0, cut);
+        line.erase(line.find_last_not_of(' ') + 1);
+        lines.push_back(line);
+        std::size_t next = rest.find_first_not_of(' ', atSpace ? cut + 1 : cut);
+        if (next == std::string::npos) return lines;
+        rest = indent + rest.substr(next);
+    }
+    lines.push_back(rest);
+    return lines;
 }
 
 }  // namespace lms::presentation

@@ -1,6 +1,7 @@
 #pragma once
 #include <functional>
 
+#include "business/ports/IErrorLog.h"
 #include "business/services/IAdminService.h"
 #include "business/services/IAssignmentService.h"
 #include "business/services/IAuditService.h"
@@ -27,7 +28,9 @@ struct Services {
 // is at most 3 choices away from the role's main menu (NFR-10).
 class App {
 public:
-    App(Services services, ConsoleIO& io) : s_(services), io_(io) {}
+    // Unexpected errors (database or file) are also written to the error log, if one is given.
+    App(Services services, ConsoleIO& io, ports::IErrorLog* errorLog = nullptr)
+        : s_(services), io_(io), log_(errorLog) {}
     // Runs until the user chooses Exit or the input ends.
     void run();
 
@@ -38,6 +41,10 @@ private:
     void viewAuditLog(const domain::Session& s);
     // Runs one action and shows its error instead of stopping the program (NFR-09).
     void attempt(const std::function<void()>& action);
+    // Writes an unexpected error to the error log (UC-09 E4, UC-16 E4, UC-20 E2).
+    void logError(const std::exception& e);
+    // The course code of an assignment's course, from the user's own courses.
+    std::string courseCode(const domain::Session& s, int courseId);
 
     // AdminMenu.cpp
     void adminMenu(const domain::Session& s);
@@ -64,6 +71,8 @@ private:
     void showMyAssignments(const domain::Session& s);
     void submitWork(const domain::Session& s);
     void showMyMark(const domain::Session& s);
+    // What a student is shown: a mark that is not released is just "Marked, awaiting release" (A8).
+    static std::string studentStatus(domain::SubmissionStatus status);
 
     // Shared pickers (App.cpp): return nothing when the user cancels or the list is empty.
     std::optional<int> pickCourse(const domain::Session& s);
@@ -72,6 +81,7 @@ private:
 
     Services s_;
     ConsoleIO& io_;
+    ports::IErrorLog* log_;
 };
 
 }  // namespace lms::presentation

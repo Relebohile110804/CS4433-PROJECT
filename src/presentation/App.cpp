@@ -13,9 +13,22 @@ void App::attempt(const std::function<void()>& action) {
         throw;
     } catch (const AccessDenied& e) {
         io_.error(std::string("Not allowed: ") + e.what());
+    } catch (const RuleViolation& e) {
+        io_.error(e.what());
     } catch (const std::exception& e) {
+        logError(e);
         io_.error(e.what());
     }
+}
+
+void App::logError(const std::exception& e) {
+    if (log_) log_->record(e.what());
+}
+
+std::string App::courseCode(const Session& s, int courseId) {
+    for (const Course& c : s_.assignments.myCourses(s))
+        if (c.getId() == courseId) return c.getCode();
+    return "";
 }
 
 void App::run() {
@@ -96,11 +109,11 @@ void App::viewAuditLog(const Session& s) {
     io_.heading("Audit log (" + std::to_string(entries.size()) + " entries)");
     for (const AuditEntry& e : entries) {
         std::string oldValue = e.getOldValue() ? ConsoleIO::formatMark(*e.getOldValue()) : "-";
-        io_.say(ConsoleIO::fit(ConsoleIO::formatTime(e.getChangedAt()) + "  submission " +
+        io_.say((ConsoleIO::formatTime(e.getChangedAt()) + "  submission " +
                                std::to_string(e.getSubmissionId()) + "  " + oldValue + " -> " +
                                ConsoleIO::formatMark(e.getNewValue()) + "  by " +
                                s_.auth.nameOf(s, e.getChangedBy())));
-        io_.say(ConsoleIO::fit("    Reason: " + e.getReason()));
+        io_.say("    Reason: " + e.getReason());
     }
 }
 

@@ -58,7 +58,7 @@ TEST_CASE("FR-19, BR-07: every mark and change gets one audit entry in the same 
     REQUIRE(f.auditLog.entries.size() == 1);
     CHECK_FALSE(f.auditLog.entries[0].getOldValue());
     CHECK(f.auditLog.entries[0].getNewValue() == Catch::Approx(60));
-    CHECK(f.auditLog.entries[0].getReason() == "First mark");
+    CHECK(f.auditLog.entries[0].getReason() == "Initial marking");
     CHECK(f.auditLog.entries[0].getChangedBy() == f.lecturer);
 
     // A correction before moderation needs a reason.

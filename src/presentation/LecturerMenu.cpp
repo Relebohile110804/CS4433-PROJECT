@@ -70,24 +70,32 @@ void App::markSubmissions(const Session& s) {
             io_.say("Nothing has been submitted yet.");
             return;
         }
-        std::vector<std::string> rows;
+        // FR-14: student, status and days late, with the time received on the line below.
+        std::vector<ConsoleIO::Option> rows;
         for (const Submission& sub : list) {
             std::string row = s_.auth.nameOf(s, sub.getStudentId()) + "  " + displayName(sub.getStatus());
             if (sub.getDaysLate() > 0) row += ", " + std::to_string(sub.getDaysLate()) + " day(s) late";
             if (sub.getMark()) row += ", final " + ConsoleIO::formatMark(sub.getMark()->getFinalMark());
-            rows.push_back(row);
+            rows.push_back({row, {"handed in " + ConsoleIO::formatTime(sub.currentVersion().getSubmittedAt())}});
         }
-        int choice = io_.menu(a->getTitle() + ": choose a submission to mark", rows);
+        int choice = io_.detailedMenu(a->getTitle() + ": choose a submission to mark", rows);
         if (choice == 0) return;
         const Submission& sub = list[choice - 1];
+
+        // UC-16 E3: after moderation only the HoD can change the mark.
+        if (sub.getStatus() == SubmissionStatus::Moderated || sub.getStatus() == SubmissionStatus::Released) {
+            io_.error("This mark is " + displayName(sub.getStatus()) + ", so it can no longer be changed here.");
+            io_.say("Please contact the Head of Department.");
+            continue;
+        }
 
         attempt([&] {
             const SubmissionVersion& v = sub.currentVersion();
             io_.heading("Submission by " + s_.auth.nameOf(s, sub.getStudentId()));
-            io_.say(ConsoleIO::fit("File: " + v.getStoredPath()));
+            io_.say("File: " + v.getStoredPath());
             io_.say("Version " + std::to_string(v.getVersionNo()) + ", handed in " +
                     ConsoleIO::formatTime(v.getSubmittedAt()) + ", SHA-256 " + v.getSha256().substr(0, 8));
-            if (!sub.getHodComment().empty()) io_.say(ConsoleIO::fit("HoD comment: " + sub.getHodComment()));
+            if (!sub.getHodComment().empty()) io_.say("HoD comment: " + sub.getHodComment());
             if (sub.getMark()) io_.say("Current final mark: " + ConsoleIO::formatMark(sub.getMark()->getFinalMark()));
 
             int raw = io_.number("Raw mark", 0, a->getMaxMark());
@@ -96,7 +104,10 @@ void App::markSubmissions(const Session& s) {
                     "   Final mark: " + ConsoleIO::formatMark(p.finalMark));
             std::string feedback = io_.requiredText("Feedback");
             std::string reason = sub.getMark() ? io_.requiredText("Reason for changing the mark") : "";
-            if (!io_.confirm("Save this mark")) return;
+            if (!io_.confirm("Save this mark")) {  // UC-16 A3
+                io_.say("Nothing was saved.");
+                return;
+            }
             s_.marking.mark(s, sub.getId(), raw, feedback, reason);
             io_.say("Mark saved. It now waits for the Head of Department.");
         });

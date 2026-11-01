@@ -1,5 +1,7 @@
 #include "presentation/App.h"
 
+#include "business/domain/Errors.h"
+
 namespace lms::presentation {
 
 using namespace lms::domain;
@@ -18,6 +20,15 @@ void App::studentMenu(const Session& s) {
     }
 }
 
+std::string App::studentStatus(SubmissionStatus status) {
+    switch (status) {
+        case SubmissionStatus::Marked:
+        case SubmissionStatus::Returned:
+        case SubmissionStatus::Moderated: return "Marked, awaiting release";
+        default: return displayName(status);
+    }
+}
+
 void App::showMyAssignments(const Session& s) {
     std::vector<Assignment> list = s_.assignments.listForStudent(s);
     io_.heading("My assignments (" + std::to_string(list.size()) + ")");
@@ -26,29 +37,86 @@ void App::showMyAssignments(const Session& s) {
         TimePoint due = s_.assignments.effectiveDeadline(a.getId(), me);
         std::string extended = due != a.getDeadline() ? " (extended)" : "";
         auto sub = s_.submissions.findOwn(s, a.getId());
-        std::string status = sub ? displayName(sub->getStatus()) : "Not submitted";
-        io_.say(ConsoleIO::fit(a.getTitle() + ", out of " + std::to_string(a.getMaxMark())));
-        io_.say(ConsoleIO::fit("    Due " + ConsoleIO::formatTime(due) + extended + "   Status: " + status));
+        std::string status = sub ? studentStatus(sub->getStatus()) : "Not submitted";
+        // FR-10: the course, the effective deadline and the student's own status.
+        io_.say(courseCode(s, a.getCourseId()) + "  " + a.getTitle() + ", out of " + std::to_string(a.getMaxMark()));
+        io_.say("    Due " + ConsoleIO::formatTime(due) + extended + "   Status: " + status);
     }
 }
 
 void App::submitWork(const Session& s) {
     auto a = pickAssignmentFrom(s_.assignments.listForStudent(s));
     if (!a) return;
-    int late = s_.submissions.previewDaysLate(s, a->getId());
-    if (late > 0) {
-        io_.say("The deadline has passed. This submission will be " + std::to_string(late) +
-                " day(s) late and a penalty will apply.");
-        io_.say("Late work can only be handed in once.");
+
+    // Step 2: the effective deadline (UC-12), then E2 and E3 before any file is asked for.
+    TimePoint due = s_.assignments.effectiveDeadline(a->getId(), s.getUser().getId());
+    io_.say("Your deadline: " + ConsoleIO::formatTime(due) + (due != a->getDeadline() ? " (extended)" : ""));
+    auto existing = s_.submissions.findOwn(s, a->getId());
+    try {
+        s_.submissions.checkCanSubmit(s, a->getId());
+    } catch (const RuleViolation& e) {
+        io_.error(e.what());
+        if (existing) io_.say("Status: " + studentStatus(existing->getStatus()));
+        return;
     }
-    std::string path = io_.requiredText("Full path of your file (.pdf .docx .txt .zip .cpp .h, up to 10 MB)");
-    if (!io_.confirm("Submit this file")) return;
-    SubmissionVersion v = s_.submissions.submit(s, a->getId(), path);
-    // Receipt (UC-09 step 8)
+    if (existing) {  // A1
+        io_.say("You have already handed in version " + std::to_string(existing->currentVersion().getVersionNo()) + ".");
+        io_.say("If you go on, the new file will replace it as the version that is marked.");
+        io_.say("The earlier version is kept.");
+    }
+
+    // Step 3 and E1: up to three attempts at a file that can be submitted.
+    std::string path;
+    for (int attempt = 1;; ++attempt) {
+        path = io_.requiredText("Full path of your file (.pdf .docx .txt .zip .cpp .h, up to 10 MB)");
+        try {
+            s_.submissions.validateFile(path);
+            break;
+        } catch (const RuleViolation& e) {
+            io_.error(e.what());
+            if (attempt == 3) {
+                io_.say("Three attempts failed. Returning to the menu.");
+                return;
+            }
+        }
+    }
+
+    // Step 4, or A2 when the deadline has passed.
+    int late = s_.submissions.previewDaysLate(s, a->getId());
+    int percent = s_.submissions.penaltyPercent(late);
+    if (late == 0) {
+        io_.say("The submission is on time.");
+    } else if (percent < 100) {
+        io_.say("This submission is " + std::to_string(late) + (late == 1 ? " day" : " days") + " late: " +
+                std::to_string(percent) + "% of the maximum mark will be deducted.");
+    } else {
+        io_.say("This submission is more than 3 days late: the mark will be 0.");
+    }
+    if (late > 0) io_.say("Late work can only be handed in once.");
+    if (!io_.confirm("Submit this file")) {  // A3
+        io_.say("Nothing was submitted.");
+        return;
+    }
+
+    std::optional<SubmissionVersion> v;
+    try {
+        v = s_.submissions.submit(s, a->getId(), path);
+    } catch (const RuleViolation&) {
+        throw;
+    } catch (const AccessDenied&) {
+        throw;
+    } catch (const std::exception& e) {  // E4: nothing was stored
+        logError(e);
+        io_.error("The work was not submitted because of an error. Please try again.");
+        io_.say(std::string("Details: ") + e.what());
+        return;
+    }
+    // Step 6: the receipt
     io_.heading("Receipt");
     io_.say("Assignment: " + a->getTitle());
-    io_.say("Version " + std::to_string(v.getVersionNo()) + ", handed in " + ConsoleIO::formatTime(v.getSubmittedAt()));
-    io_.say("File check (SHA-256): " + v.getSha256().substr(0, 8));
+    io_.say("Version " + std::to_string(v->getVersionNo()) + ", handed in " + ConsoleIO::formatTime(v->getSubmittedAt()));
+    io_.say(std::string("Status: ") + (late > 0 ? "Late" : "Submitted"));
+    io_.say("File check (SHA-256): " + v->getSha256().substr(0, 8));
 }
 
 void App::showMyMark(const Session& s) {
@@ -59,7 +127,7 @@ void App::showMyMark(const Session& s) {
     io_.say("Raw mark: " + std::to_string(m.getRawMark()) + " out of " + std::to_string(a->getMaxMark()));
     io_.say("Late penalty: " + ConsoleIO::formatMark(m.getPenalty()));
     io_.say("Final mark: " + ConsoleIO::formatMark(m.getFinalMark()));
-    io_.say(ConsoleIO::fit("Feedback: " + m.getFeedback()));
+    io_.say("Feedback: " + m.getFeedback());
 }
 
 }  // namespace lms::presentation

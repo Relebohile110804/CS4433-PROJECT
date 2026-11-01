@@ -20,26 +20,57 @@ void App::hodMenu(const Session& s) {
 }
 
 void App::moderate(const Session& s) {
-    // The queue shows only assignments with work awaiting moderation.
-    auto a = pickAssignmentFrom(s_.moderation.queue(s));
-    if (!a) return;
+    // Step 1: each assignment with marked work, and how many submissions are in each status.
+    std::vector<Assignment> queue = s_.moderation.queue(s);
+    if (queue.empty()) {
+        io_.say("There are no assignments here.");
+        return;
+    }
+    std::vector<ConsoleIO::Option> rows;
+    for (const Assignment& a : queue) {
+        int waiting = 0, moderated = 0, returned = 0, released = 0;
+        for (const Submission& sub : s_.moderation.listForModeration(s, a.getId())) {
+            switch (sub.getStatus()) {
+                case SubmissionStatus::Marked: ++waiting; break;
+                case SubmissionStatus::Moderated: ++moderated; break;
+                case SubmissionStatus::Returned: ++returned; break;
+                case SubmissionStatus::Released: ++released; break;
+                default: break;
+            }
+        }
+        rows.push_back({a.getTitle() + " (" + courseCode(s, a.getCourseId()) + "), due " +
+                            ConsoleIO::formatTime(a.getDeadline()),
+                        {std::to_string(waiting) + " awaiting moderation, " + std::to_string(moderated) +
+                         " moderated, " + std::to_string(returned) + " returned, " + std::to_string(released) +
+                         " released"}});
+    }
+    int pick = io_.detailedMenu("Choose an assignment", rows, "Cancel");
+    if (pick == 0) return;
+    const Assignment& a = queue[pick - 1];
 
     for (;;) {
-        std::vector<Submission> list = s_.moderation.listForModeration(s, a->getId());
-        std::vector<std::string> rows;
+        // Step 2: marks, feedback, marker and any extension, read again after every action.
+        std::vector<Submission> list = s_.moderation.listForModeration(s, a.getId());
+        std::vector<ConsoleIO::Option> subs;
         for (const Submission& sub : list) {
             const Mark& m = *sub.getMark();
-            rows.push_back(s_.auth.nameOf(s, sub.getStudentId()) + "  raw " + std::to_string(m.getRawMark()) +
-                           ", penalty " + ConsoleIO::formatMark(m.getPenalty()) + ", final " +
-                           ConsoleIO::formatMark(m.getFinalMark()) + "  " + displayName(sub.getStatus()));
+            ConsoleIO::Option row{s_.auth.nameOf(s, sub.getStudentId()) + "  raw " + std::to_string(m.getRawMark()) +
+                                      ", penalty " + ConsoleIO::formatMark(m.getPenalty()) + ", final " +
+                                      ConsoleIO::formatMark(m.getFinalMark()) + "  " + displayName(sub.getStatus()),
+                                  {"Marked by " + s_.auth.nameOf(s, m.getMarkedBy()) + ": " + m.getFeedback()}};
+            for (const Extension& e : a.getExtensions())
+                if (e.getStudentId() == sub.getStudentId())
+                    row.details.push_back("Extension to " + ConsoleIO::formatTime(e.getNewDeadline()) + ": " +
+                                          e.getReason());
+            subs.push_back(row);
         }
-        int choice = io_.menu(a->getTitle() + ": choose a submission", rows);
+        int choice = io_.detailedMenu(a.getTitle() + ": choose a submission", subs);
         if (choice == 0) return;
         const Submission& sub = list[choice - 1];
 
         attempt([&] {
             io_.heading("Submission by " + s_.auth.nameOf(s, sub.getStudentId()));
-            io_.say(ConsoleIO::fit("Feedback: " + sub.getMark()->getFeedback()));
+            io_.say("Feedback: " + sub.getMark()->getFeedback());
             int action = io_.menu("What do you want to do",
                                   {"Approve the mark", "Adjust the mark", "Return to the lecturer"}, "Cancel");
             switch (action) {
@@ -48,7 +79,7 @@ void App::moderate(const Session& s) {
                     io_.say("Mark approved.");
                     break;
                 case 2: {
-                    double mark = io_.decimal("New final mark", 0, a->getMaxMark());
+                    double mark = io_.decimal("New final mark", 0, a.getMaxMark());
                     s_.moderation.adjust(s, sub.getId(), mark, io_.requiredText("Reason"));
                     io_.say("Mark adjusted.");
                     break;
@@ -67,7 +98,20 @@ void App::releaseMarks(const Session& s) {
     if (!courseId) return;
     auto a = pickAssignment(s, *courseId);
     if (!a) return;
-    if (!io_.confirm("Release all moderated marks for " + a->getTitle() + " to the students")) return;
+    // Step 4: how many will be released and how many stay hidden, before asking (A3 if none).
+    int moderated = 0, notYet = 0;
+    for (const Submission& sub : s_.moderation.listForModeration(s, a->getId())) {
+        if (sub.getStatus() == SubmissionStatus::Moderated) ++moderated;
+        if (sub.getStatus() == SubmissionStatus::Marked || sub.getStatus() == SubmissionStatus::Returned) ++notYet;
+    }
+    if (moderated == 0) {
+        io_.error("There are no moderated marks to release for this assignment");
+        return;
+    }
+    io_.say(std::to_string(moderated) + " moderated mark(s) will be released.");
+    if (notYet > 0)
+        io_.say(std::to_string(notYet) + " marked submission(s) are not yet moderated and will stay hidden.");
+    if (!io_.confirm("Release these marks now")) return;
     int count = s_.moderation.release(s, a->getId());
     io_.say(std::to_string(count) + " mark(s) released.");
 }

@@ -34,7 +34,7 @@ std::vector<Assignment> ModerationService::queue(const Session& s) {
     for (const Course& c : courses_.coursesInDepartment(dept))
         for (Assignment& a : assignments_.forCourse(c.getId()))
             for (const Submission& sub : submissions_.forAssignment(a.getId()))
-                if (sub.getStatus() == SubmissionStatus::Marked) {
+                if (sub.isMarked()) {  // BR-06: released marks can still be corrected
                     result.push_back(std::move(a));
                     break;
                 }

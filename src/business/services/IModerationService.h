@@ -12,7 +12,8 @@ namespace lms::services {
 class IModerationService {
 public:
     virtual ~IModerationService() = default;
-    // Assignments in the department with at least one submission waiting for moderation.
+    // Assignments in the department with at least one marked submission (waiting, returned,
+    // moderated or released), so that a released mark can still be corrected (BR-06).
     virtual std::vector<domain::Assignment> queue(const domain::Session& s) = 0;
     // FR-16: every marked submission of the assignment.
     virtual std::vector<domain::Submission> listForModeration(const domain::Session& s, int assignmentId) = 0;
