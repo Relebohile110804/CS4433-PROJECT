@@ -50,6 +50,18 @@ TEST_CASE("BR-01, BR-03: an extension granted after a late submission removes th
     CHECK(p.finalMark == Catch::Approx(70));
 }
 
+TEST_CASE("CR1, BR-01: a whole-class extension granted after late work removes the penalty", "[unit][service]") {
+    ServiceFixture f;
+    int ann = f.submitAt(50);
+    int ben = f.submitAt(75, f.student2);
+    f.assignments.addExtension(f.assignment, Extension(0, Extension::WholeClass, hoursAfter(72), "Power cut",
+                                                       f.lecturer, hoursAfter(55)));
+    Session lect = f.as(f.lecturer);
+    CHECK(f.marking.previewMark(lect, ann, 70).daysLate == 0);        // late before, on time now
+    CHECK(f.marking.previewMark(lect, ben, 70).daysLate == 1);        // still 3 hours after the new deadline
+    CHECK(f.marking.previewMark(lect, ben, 70).finalMark == Catch::Approx(60));
+}
+
 TEST_CASE("FR-19, BR-07: every mark and change gets one audit entry in the same transaction", "[unit][service]") {
     ServiceFixture f;
     int id = f.submitAt(10);

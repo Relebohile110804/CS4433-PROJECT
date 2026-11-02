@@ -6,14 +6,19 @@
 
 namespace lms::domain {
 
-// An individual extension for one student on one assignment (FR-09, BR-03).
+// An extension on one assignment, for one student or for the whole class (FR-09, BR-03, CR1).
 class Extension {
 public:
+    // Student id used for an extension that applies to every student of the course (CR1).
+    // Real user ids start at 1, so 0 never belongs to a student.
+    static constexpr int WholeClass = 0;
+
     Extension(int id, int studentId, TimePoint newDeadline, std::string reason, int grantedBy, TimePoint grantedAt);
 
     int getId() const { return id_; }
     void setId(int id) { id_ = id; }
     int getStudentId() const { return studentId_; }
+    bool isWholeClass() const { return studentId_ == WholeClass; }
     TimePoint getNewDeadline() const { return newDeadline_; }
     const std::string& getReason() const { return reason_; }
     int getGrantedBy() const { return grantedBy_; }
@@ -36,10 +41,15 @@ public:
 
     Assignment(int id, int courseId, std::string title, std::string description, TimePoint deadline, int maxMark);
 
-    // The extension deadline if the student has one, otherwise the assignment deadline (BR-03).
+    // The latest of the assignment deadline, every whole-class extension and the
+    // student's own extensions (BR-03).
     TimePoint effectiveDeadlineFor(int studentId) const;
-    // Adds an extension after checking BR-03: a reason is given and the new
-    // deadline is later than the student's current effective deadline.
+    // The deadline for the whole class: the assignment deadline or the latest whole-class extension.
+    TimePoint classDeadline() const;
+    // The extension that sets the student's effective deadline, or nullptr if they have none (FR-10).
+    const Extension* extensionFor(int studentId) const;
+    // Adds an extension after checking BR-03: a reason is given, the new deadline is in the
+    // future and later than the current deadline of that student (or of the class).
     void addExtension(const Extension& e, TimePoint now);
 
     int getId() const { return id_; }

@@ -56,3 +56,46 @@ TEST_CASE("course keeps its lecturers and students", "[unit][domain]") {
     CHECK_FALSE(c.hasStudent(10));
     CHECK_THROWS_AS(c.rename("", "Title"), RuleViolation);
 }
+
+// ---- CR1 (v1.1.0): whole-class extensions
+
+TEST_CASE("CR1: a whole-class extension moves every student's deadline", "[unit][domain]") {
+    Assignment a(1, 1, "A1", "", hoursAfter(48), 100);
+    a.addExtension(Extension(0, Extension::WholeClass, hoursAfter(72), "Power cut", 2, base()), base());
+    CHECK(a.classDeadline() == hoursAfter(72));
+    CHECK(a.effectiveDeadlineFor(10) == hoursAfter(72));
+    CHECK(a.effectiveDeadlineFor(11) == hoursAfter(72));
+    REQUIRE(a.extensionFor(10) != nullptr);
+    CHECK(a.extensionFor(10)->isWholeClass());
+    CHECK(a.extensionFor(10)->getReason() == "Power cut");
+}
+
+TEST_CASE("CR1: the later of a student's own and the whole-class extension counts", "[unit][domain]") {
+    Assignment a(1, 1, "A1", "", hoursAfter(48), 100);
+    CHECK(a.extensionFor(10) == nullptr);
+    a.addExtension(Extension(0, 10, hoursAfter(96), "Illness", 2, base()), base());
+    a.addExtension(Extension(0, Extension::WholeClass, hoursAfter(72), "Power cut", 2, base()), base());
+    CHECK(a.effectiveDeadlineFor(10) == hoursAfter(96));  // keeps the longer personal extension
+    CHECK_FALSE(a.extensionFor(10)->isWholeClass());
+    CHECK(a.effectiveDeadlineFor(11) == hoursAfter(72));
+    // A later whole-class extension then applies to student 10 as well.
+    a.addExtension(Extension(0, Extension::WholeClass, hoursAfter(120), "Exam week", 2, base()), base());
+    CHECK(a.effectiveDeadlineFor(10) == hoursAfter(120));
+    CHECK(a.extensionFor(10)->getReason() == "Exam week");
+    // A personal extension must go past the whole-class deadline the student now has.
+    CHECK_THROWS_AS(a.addExtension(Extension(0, 11, hoursAfter(100), "Sick", 2, base()), base()), RuleViolation);
+}
+
+TEST_CASE("CR1: a whole-class extension must be later than the class deadline and in the future", "[unit][domain]") {
+    Assignment a(1, 1, "A1", "", hoursAfter(48), 100);
+    a.addExtension(Extension(0, 10, hoursAfter(96), "Illness", 2, base()), base());
+    Extension same(0, Extension::WholeClass, hoursAfter(48), "Same time", 2, base());
+    CHECK_THROWS_WITH(a.addExtension(same, base()), "The new deadline must be later than the current deadline of the class");
+    // Earlier than one student's own extension is fine: it is compared with the class deadline.
+    CHECK_NOTHROW(a.addExtension(Extension(0, Extension::WholeClass, hoursAfter(60), "Power cut", 2, base()), base()));
+    TimePoint now = hoursAfter(80);
+    CHECK_THROWS_WITH(a.addExtension(Extension(0, Extension::WholeClass, hoursAfter(60), "Same", 2, now), now),
+                      "The new deadline must be later than the current deadline of the class");
+    CHECK_THROWS_WITH(a.addExtension(Extension(0, Extension::WholeClass, hoursAfter(75), "Past", 2, now), now),
+                      "The new deadline must be in the future");
+}

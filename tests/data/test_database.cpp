@@ -18,11 +18,11 @@ int countRows(Database& db, const std::string& table) {
 }
 }  // namespace
 
-TEST_CASE("a new database gets all 11 tables from schema.sql", "[integration][data]") {
+TEST_CASE("a new database gets all 12 tables from schema.sql", "[integration][data]") {
     Database db(":memory:");
     Statement st = db.prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table'");
     st.step();
-    CHECK(st.columnInt(0) == 11);
+    CHECK(st.columnInt(0) == 12);  // 11 in v1.0.0, plus class_extensions in v1.1.0 (CR1)
 }
 
 TEST_CASE("foreign keys are switched on", "[integration][data]") {
@@ -123,4 +123,56 @@ TEST_CASE("backup and restore (FR-23)", "[integration][data]") {
 
     std::filesystem::remove(backupFile);
     std::filesystem::remove(notBackup);
+}
+
+// ---- CR1 (v1.1.0): a database made by v1.0.0 has no class_extensions table.
+
+namespace {
+bool hasTable(Database& db, const std::string& name) {
+    Statement st = db.prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?1");
+    st.bindText(1, name);
+    st.step();
+    return st.columnInt(0) == 1;
+}
+
+// Makes a file that looks like lms.db from v1.0.0: the same tables, without class_extensions.
+void makeVersion100Database(const std::string& path) {
+    Database old(path);
+    old.exec("DROP TABLE class_extensions");
+    old.exec("INSERT INTO users (username, password_hash, full_name, role, person_number) "
+             "VALUES ('keep', 'h', 'N', 'STUDENT', '1')");
+    REQUIRE_FALSE(hasTable(old, "class_extensions"));
+}
+}  // namespace
+
+TEST_CASE("CR1: a v1.0.0 database is upgraded when it is opened, and its data is kept", "[integration][data]") {
+    std::string file = (std::filesystem::temp_directory_path() / "lms_test_v100.db").string();
+    std::filesystem::remove(file);
+    makeVersion100Database(file);
+    {
+        Database db(file);
+        CHECK(hasTable(db, "class_extensions"));
+        CHECK(countRows(db, "users") == 1);
+        CHECK(countRows(db, "class_extensions") == 0);
+    }
+    {
+        Database again(file);  // opening it a second time changes nothing
+        CHECK(countRows(again, "users") == 1);
+        Statement st = again.prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table'");
+        st.step();
+        CHECK(st.columnInt(0) == 12);
+    }
+    std::filesystem::remove(file);
+}
+
+TEST_CASE("CR1: restoring a v1.0.0 backup gives a database with the new table", "[integration][data]") {
+    std::string file = (std::filesystem::temp_directory_path() / "lms_test_v100_backup.db").string();
+    std::filesystem::remove(file);
+    makeVersion100Database(file);
+
+    Database db(":memory:");
+    db.restoreFrom(file);
+    CHECK(countRows(db, "users") == 1);
+    CHECK(hasTable(db, "class_extensions"));
+    std::filesystem::remove(file);
 }

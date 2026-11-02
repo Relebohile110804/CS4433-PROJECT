@@ -16,6 +16,8 @@ public:
                          const std::string& description, domain::TimePoint deadline, int maxMark) override;
     void grantExtension(const domain::Session& s, int assignmentId, int studentId, domain::TimePoint newDeadline,
                         const std::string& reason) override;
+    void grantClassExtension(const domain::Session& s, int assignmentId, domain::TimePoint newDeadline,
+                             const std::string& reason) override;
     domain::TimePoint effectiveDeadline(int assignmentId, int studentId) override;
     std::vector<domain::Assignment> listForStudent(const domain::Session& s) override;
     std::vector<domain::Course> myCourses(const domain::Session& s) override;
@@ -24,6 +26,8 @@ public:
 private:
     domain::Assignment existingAssignment(int assignmentId);
     void requireTeaches(const domain::Session& s, int courseId);
+    void addExtension(const domain::Session& s, domain::Assignment& a, int studentId, domain::TimePoint newDeadline,
+                      const std::string& reason);
 
     repositories::IAssignmentRepository& assignments_;
     repositories::ICourseRepository& courses_;

@@ -1,5 +1,18 @@
 # Moderated LMS release notes
 
+## v1.1.0 (November 2026): change request CR1
+
+### New
+- **Whole-class extensions:** a lecturer can give every student of a course a later deadline for one assignment, with a reason (Lecturer > Grant an extension > course > assignment > The whole class). A student who already has a later personal extension keeps it.
+- **Extensions on the student's list:** under an extended deadline, My assignments now shows the original deadline, whether the extension is for the whole class or for the student, and the reason.
+- The Head of Department sees whole-class extensions when moderating, next to the marks they affect.
+
+### Upgrading from v1.0.0
+Make a backup first, then replace lms.exe and the .dll files (installation guide, Section 3.5). The first time v1.1.0 opens lms.db it adds one new table, class_extensions. No existing data is changed. Backups made with v1.0.0 can still be restored.
+
+### Quality
+219 automated tests pass on Linux (218 on Windows, where ST-45 is skipped): the 206 tests of v1.0.0, two of them updated for the new table count, and 13 new tests for CR1. cppcheck and clang-tidy report no findings, and no function has a cyclomatic complexity above 10.
+
 ## v1.0.0 (November 2026): first release to the school
 
 A console program for one school computer that lets lecturers set and mark assignments, students hand in work and see their marks, and the Head of Department moderate every mark before students can see it. It runs fully offline.

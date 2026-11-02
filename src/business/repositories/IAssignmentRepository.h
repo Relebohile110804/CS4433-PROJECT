@@ -13,6 +13,7 @@ public:
     virtual std::optional<domain::Assignment> findById(int id) = 0;
     virtual std::vector<domain::Assignment> forCourse(int courseId) = 0;
     virtual int add(const domain::Assignment& assignment) = 0;
+    // Stores an individual or a whole-class extension (CR1).
     virtual int addExtension(int assignmentId, const domain::Extension& extension) = 0;
 };
 

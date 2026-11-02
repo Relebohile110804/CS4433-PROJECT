@@ -68,7 +68,8 @@ private:
     bool committed_ = false;
 };
 
-// The connection to lms.db. Creates the tables from schema.sql when the file is new.
+// The connection to lms.db. Creates the tables from schema.sql when the file is new, and
+// brings a database from an older version up to date (upgradeSchema).
 class Database : public repositories::ITransactionManager, public ports::IBackup {
 public:
     // ":memory:" opens an in-memory database (used by the tests).
@@ -91,6 +92,8 @@ public:
 private:
     friend class Transaction;
     void createSchemaIfNew();
+    // Runs the "Upgrades" part of schema.sql, which is safe to run more than once (CR1, v1.1.0).
+    void upgradeSchema();
     sqlite3* handle_ = nullptr;
     std::string path_;
     int nextSavepoint_ = 0;

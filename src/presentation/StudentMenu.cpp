@@ -36,7 +36,8 @@ void App::showMyAssignments(const Session& s) {
     int me = s.getUser().getId();
     for (const Assignment& a : list) {
         TimePoint due = s_.assignments.effectiveDeadline(a.getId(), me);
-        std::string extended = due != a.getDeadline() ? " (extended)" : "";
+        const Extension* ext = a.extensionFor(me);
+        std::string extended = ext ? " (extended)" : "";
         auto sub = s_.submissions.findOwn(s, a.getId());
         std::string status = sub ? studentStatus(sub->getStatus()) : "Not submitted";
         // FR-10: the course, the effective deadline and the student's own status.
@@ -45,6 +46,10 @@ void App::showMyAssignments(const Session& s) {
         line += extended;
         line += "   Status: " + status;
         io_.say(line);
+        // CR1: show the extension itself, not only the new deadline.
+        if (ext)
+            io_.say("    Extended from " + ConsoleIO::formatTime(a.getDeadline()) +
+                    (ext->isWholeClass() ? " for the whole class: " : " for you: ") + ext->getReason());
     }
 }
 
