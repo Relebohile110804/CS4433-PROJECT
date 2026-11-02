@@ -1,6 +1,7 @@
 #include "catch2/catch_amalgamated.hpp"
 
 #include <sstream>
+#include <vector>
 
 #include "../TestHelpers.h"
 #include "presentation/ConsoleIO.h"
@@ -59,4 +60,41 @@ TEST_CASE("NFR-11: marks and long lines are formatted for an 80-column screen", 
     CHECK(ConsoleIO::formatMark(62.5) == "62.5");
     CHECK(ConsoleIO::fit(std::string(100, 'x')).size() == 80);
     CHECK(ConsoleIO::fit("short") == "short");
+}
+
+TEST_CASE("R13: a password is read with the echo turned off, then on again", "[unit][ui]") {
+    std::istringstream in("   \nsecret123\n");
+    std::ostringstream out;
+    std::vector<bool> calls;
+    ConsoleIO io(in, out, [&](bool on) {
+        calls.push_back(on);
+        return true;  // as on a real terminal
+    });
+    CHECK(io.password("Password") == "secret123");
+    // Once for the empty try and once for the real one: off, then back on each time.
+    CHECK(calls == std::vector<bool>{false, true, false, true});
+    CHECK(out.str().find("Please type something.") != std::string::npos);
+    CHECK(out.str().find("secret123") == std::string::npos);  // never written to the screen
+}
+
+TEST_CASE("R13: the echo comes back on even when the input ends during a password", "[unit][ui]") {
+    std::istringstream in("");
+    std::ostringstream out;
+    std::vector<bool> calls;
+    ConsoleIO io(in, out, [&](bool on) {
+        calls.push_back(on);
+        return true;
+    });
+    CHECK_THROWS_AS(io.password("Password"), InputClosed);
+    CHECK(calls == std::vector<bool>{false, true});
+}
+
+TEST_CASE("R13: without a terminal the password is read like other text", "[unit][ui]") {
+    std::istringstream in("secret123\n");
+    std::ostringstream out;
+    ConsoleIO io(in, out, [](bool) { return false; });  // input is a file or pipe
+    CHECK(io.password("Password") == "secret123");
+    CHECK(out.str() == "Password: ");  // no extra new line when nothing was hidden
+    ConsoleIO plain(in, out);
+    CHECK_THROWS_AS(plain.password("Password"), InputClosed);
 }

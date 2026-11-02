@@ -113,3 +113,16 @@ lizard src -l cpp -C 10 -w
 ```
 
 clang-tidy needs a build folder made with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`, and reads its checks from .clang-tidy. lizard (`pip install lizard`) fails if any function has a cyclomatic complexity above 10. The three reports are saved as a build artifact.
+
+## Release package (Windows)
+
+From the VS Code terminal, with MSYS2 installed as above:
+
+```
+cmake --preset windows-mingw-release
+cmake --build --preset windows-mingw-release --target package
+```
+
+This makes `build/windows-mingw-release/LMS-<version>-win64.zip`, which holds lms.exe, the DLLs it needs from MSYS2 and README.txt. The school computer needs nothing else: unzip it into a folder and double-click lms.exe.
+
+Passwords are not shown while they are typed. This works in the Windows console and in Linux terminals; when the input comes from a file or pipe, passwords are read as normal text.

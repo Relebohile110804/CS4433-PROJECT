@@ -78,7 +78,7 @@ void App::createUser(const Session& s) {
     std::string username = io_.requiredText("Username");
     std::string fullName = io_.requiredText("Full name");
     std::string number = io_.requiredText(role == Role::Student ? "Student number" : "Staff number");
-    std::string password = io_.requiredText("First password (at least 8 characters)");
+    std::string password = io_.password("First password (at least 8 characters)");
     s_.admin.createUser(s, role, username, fullName, number, password);
     io_.say("User created.");
 }
@@ -99,7 +99,7 @@ void App::editUserName(const Session& s) {
 void App::resetPassword(const Session& s) {
     auto id = pickUser(s, std::nullopt, "Choose a user");
     if (!id) return;
-    s_.admin.resetPassword(s, *id, io_.requiredText("New password (at least 8 characters)"));
+    s_.admin.resetPassword(s, *id, io_.password("New password (at least 8 characters)"));
     io_.say("Password reset. The account is unlocked.");
 }
 

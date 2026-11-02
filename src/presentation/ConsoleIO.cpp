@@ -100,6 +100,28 @@ std::string ConsoleIO::requiredText(const std::string& prompt) {
     }
 }
 
+std::string ConsoleIO::password(const std::string& prompt) {
+    for (;;) {
+        std::vector<std::string> lines = wrap(prompt + ":");
+        for (std::size_t i = 0; i + 1 < lines.size(); ++i) out_ << lines[i] << "\n";
+        out_ << lines.back() << " " << std::flush;
+        bool hidden = echo_ && echo_(false);
+        std::string value;
+        try {
+            value = trim(readLine());
+        } catch (...) {
+            if (hidden) echo_(true);  // never leave the terminal without echo
+            throw;
+        }
+        if (hidden) {
+            echo_(true);
+            out_ << "\n";  // the Enter key was not shown either
+        }
+        if (!value.empty()) return value;
+        error("Please type something.");
+    }
+}
+
 int ConsoleIO::number(const std::string& prompt, int min, int max) {
     for (;;) {
         std::string value = text(prompt + " (" + std::to_string(min) + "-" + std::to_string(max) + ")");

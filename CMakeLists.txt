@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(ModeratedLMS VERSION 0.1.0 LANGUAGES CXX)
+project(ModeratedLMS VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -86,6 +86,31 @@ lms_link(lms_presentation lms_business)
 # main.cpp is the composition root: it creates the concrete classes and wires them together.
 add_executable(lms src/main.cpp)
 target_link_libraries(lms PRIVATE lms_presentation lms_data)
+target_compile_definitions(lms PRIVATE LMS_VERSION="${PROJECT_VERSION}")
+
+# ---- Release package (Phase 7) -------------------------------------------------
+# "cmake --build --preset windows-mingw-release --target package" makes LMS-<version>-win64.zip:
+# lms.exe, the DLLs it needs, README.txt and the release notes, so the school computer needs nothing else.
+install(TARGETS lms RUNTIME DESTINATION .)
+install(FILES packaging/README.txt RELEASE_NOTES.md DESTINATION .)
+if(WIN32 AND NOT MSVC)
+    get_filename_component(LMS_COMPILER_BIN "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    install(CODE "
+        file(GET_RUNTIME_DEPENDENCIES
+            EXECUTABLES \"$<TARGET_FILE:lms>\"
+            RESOLVED_DEPENDENCIES_VAR deps
+            DIRECTORIES \"${LMS_COMPILER_BIN}\"
+            PRE_EXCLUDE_REGEXES \"^api-ms-\" \"^ext-ms-\"
+            POST_EXCLUDE_REGEXES \".*[Ss]ystem32.*\")
+        foreach(dll IN LISTS deps)
+            file(INSTALL \"\${dll}\" DESTINATION \"\${CMAKE_INSTALL_PREFIX}\")
+        endforeach()
+    ")
+endif()
+set(CPACK_GENERATOR ZIP)
+set(CPACK_PACKAGE_FILE_NAME "LMS-${PROJECT_VERSION}-win64")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
+include(CPack)
 
 
 # ---- Tests -------------------------------------------------------------------
