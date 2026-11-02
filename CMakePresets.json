@@ -21,6 +21,15 @@
       }
     },
     {
+      "name": "windows-mingw-release",
+      "displayName": "Windows Release package (VS Code + MSYS2 GCC)",
+      "inherits": "windows-mingw",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "LMS_BUILD_TESTS": "OFF"
+      }
+    },
+    {
       "name": "windows-debug",
       "displayName": "Windows x64 Debug (Visual Studio + vcpkg)",
       "generator": "Ninja",
@@ -67,6 +76,10 @@
     {
       "name": "windows-mingw",
       "configurePreset": "windows-mingw"
+    },
+    {
+      "name": "windows-mingw-release",
+      "configurePreset": "windows-mingw-release"
     },
     {
       "name": "windows-debug",

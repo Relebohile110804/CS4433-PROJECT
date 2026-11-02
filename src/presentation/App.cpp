@@ -53,7 +53,7 @@ void App::firstRun() {
         std::string username = io_.requiredText("Username");
         std::string fullName = io_.requiredText("Full name");
         std::string number = io_.requiredText("Staff number");
-        std::string password = io_.requiredText("Password (at least 8 characters)");
+        std::string password = io_.password("Password (at least 8 characters)");
         try {
             s_.admin.createFirstAdministrator(username, fullName, number, password);
             io_.say("Administrator created. You can now log in.");
@@ -67,7 +67,7 @@ void App::firstRun() {
 void App::login() {
     io_.heading("Log in");
     std::string username = io_.requiredText("Username");
-    std::string password = io_.requiredText("Password");
+    std::string password = io_.password("Password");
     Session session = s_.auth.login(username, password);
     const User& user = session.getUser();
     io_.say("Welcome, " + user.getFullName() + " (" + displayName(user.getRole()) + ").");
@@ -82,9 +82,9 @@ void App::login() {
 
 void App::changePassword(const Session& s) {
     io_.heading("Change password");
-    std::string current = io_.requiredText("Current password");
-    std::string fresh = io_.requiredText("New password (at least 8 characters)");
-    std::string again = io_.requiredText("New password again");
+    std::string current = io_.password("Current password");
+    std::string fresh = io_.password("New password (at least 8 characters)");
+    std::string again = io_.password("New password again");
     if (fresh != again) {
         io_.error("The two new passwords are different. Nothing was changed.");
         return;

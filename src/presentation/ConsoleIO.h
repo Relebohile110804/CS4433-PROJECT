@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include <iosfwd>
 #include <optional>
 #include <stdexcept>
@@ -23,7 +24,13 @@ public:
     // Times are stored in UTC (BR-08) and shown in Lesotho time, which is UTC+2 all year.
     static constexpr std::chrono::hours UtcOffset{2};
 
-    ConsoleIO(std::istream& in, std::ostream& out) : in_(in), out_(out) {}
+    // Turns the terminal's echo of typed keys off (false) or back on (true). It returns true
+    // if the echo really changed, which only happens when the input is a real terminal.
+    using EchoControl = std::function<bool(bool on)>;
+
+    // Without an echo control (for example in the tests) passwords are read like other text.
+    ConsoleIO(std::istream& in, std::ostream& out, EchoControl echo = nullptr)
+        : in_(in), out_(out), echo_(std::move(echo)) {}
 
     void heading(const std::string& title);
     void say(const std::string& line);
@@ -33,6 +40,8 @@ public:
     std::string text(const std::string& prompt);
     // Text that must not be empty.
     std::string requiredText(const std::string& prompt);
+    // Like requiredText, but the typed keys are not shown on the screen (R13).
+    std::string password(const std::string& prompt);
     int number(const std::string& prompt, int min, int max);
     double decimal(const std::string& prompt, double min, double max);
     bool confirm(const std::string& prompt);
@@ -62,6 +71,11 @@ private:
     std::string readLine();
     std::istream& in_;
     std::ostream& out_;
+    EchoControl echo_;
 };
+
+// The echo control for the real console (Windows console or a POSIX terminal). It does
+// nothing and returns false when the input is not a terminal, for example a file or pipe.
+bool terminalEcho(bool on);
 
 }  // namespace lms::presentation

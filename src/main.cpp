@@ -24,8 +24,13 @@
 #include "data/Toolchain.h"
 #include "presentation/App.h"
 
+#ifndef LMS_VERSION
+#define LMS_VERSION "development build"
+#endif
+
 int main() {
     using namespace lms;
+    std::cout << "Moderated LMS, version " << LMS_VERSION << "\n";
     if (!data::initSodium()) {
         std::cerr << "Could not start the password library (libsodium).\n";
         return 1;
@@ -54,11 +59,15 @@ int main() {
         services::ModerationService moderation(submissions, assignments, courses, audit, clock, db);
 
         // Presentation
-        presentation::ConsoleIO io(std::cin, std::cout);
+        presentation::ConsoleIO io(std::cin, std::cout, presentation::terminalEcho);  // passwords not shown (R13)
         presentation::App app({auth, admin, assignmentService, submitting, marking, moderation, audit}, io, &errorLog);
         app.run();
     } catch (const std::exception& e) {
         std::cerr << "The program had to stop: " << e.what() << "\n";
+        // Keep the window open when the program was started by double-clicking it.
+        std::cerr << "Press Enter to close this window.\n";
+        std::cin.clear();
+        std::cin.get();
         return 1;
     }
     return 0;
