@@ -32,3 +32,47 @@ jobs:
           path: |
             test-results.xml
             coverage/
+
+  # Phase 6 quality assurance: both analysers must report no findings, or the build fails.
+  static-analysis:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools and libraries
+        run: sudo apt-get update && sudo apt-get install -y cppcheck clang-tidy libsqlite3-dev libsodium-dev
+      - name: cppcheck
+        run: |
+          cppcheck --version
+          cppcheck --enable=warning,style,performance,portability --std=c++17 --language=c++ \
+            --inline-suppr -I src --suppressions-list=cppcheck-suppressions.txt \
+            --error-exitcode=1 --template='{file}:{line}: {severity} [{id}] {message}' \
+            src 2>&1 | tee cppcheck-report.txt
+          exit ${PIPESTATUS[0]}
+      - name: clang-tidy (checks in .clang-tidy)
+        run: |
+          cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          clang-tidy --version
+          run-clang-tidy -p build -quiet "$PWD/src/" 2>&1 | tee clang-tidy-report.txt
+          exit ${PIPESTATUS[0]}
+      # Closed layers: a lower layer never includes a higher one, and the menus never use the data layer.
+      - name: Layer rules
+        run: |
+          if grep -rnE '#include "(data|presentation)/' src/business; then exit 1; fi
+          if grep -rn '#include "presentation/' src/data; then exit 1; fi
+          if grep -rn '#include "data/' src/presentation; then exit 1; fi
+          echo "No layer rule is broken."
+      # Metrics: the full table is saved, and the job fails if any function has a cyclomatic complexity above 10.
+      - name: Complexity (lizard)
+        run: |
+          python3 -m venv /tmp/lizard && /tmp/lizard/bin/pip install --quiet lizard
+          /tmp/lizard/bin/lizard src -l cpp > complexity-report.txt
+          /tmp/lizard/bin/lizard src -l cpp -C 10 -w
+      - name: Save analysis reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis-reports
+          path: |
+            cppcheck-report.txt
+            clang-tidy-report.txt
+            complexity-report.txt

@@ -12,7 +12,7 @@ namespace lms::services {
 
 class SubmissionService : public ISubmissionService {
 public:
-    static constexpr std::uintmax_t MaxFileSize = 10 * 1024 * 1024;  // UC-09: 10 MB
+    static constexpr std::uintmax_t MaxFileSize = std::uintmax_t{10} * 1024 * 1024;  // UC-09: 10 MB
 
     SubmissionService(repositories::ISubmissionRepository& submissions, repositories::IAssignmentRepository& assignments,
                       repositories::ICourseRepository& courses, ports::IFileStore& files, const IPenaltyPolicy& policy,

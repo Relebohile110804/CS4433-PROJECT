@@ -373,16 +373,17 @@ TEST_CASE("ST-19: UC-09 E4, a file store error leaves nothing stored and says to
     SystemFixture f;
     f.seed();
     f.clock.set(hoursAfter(10));
-    // A file already sits where the copy would go, so the copy fails.
-    fs::path blocker = f.dir.path / "submissions" /
-                       ("a" + std::to_string(f.project) + "_s" + std::to_string(f.ann) + "_v1.pdf");
-    std::ofstream(blocker) << "not the student's work";
-    std::string out = f.run(login("ann") + "2\n1\n" + f.file("report.pdf") + "\ny\n0\n0\n");
+    // The submissions folder has been replaced by a plain file, so the copy fails.
+    std::string path = f.file("report.pdf");
+    fs::path folder = f.dir.path / "submissions";
+    fs::remove_all(folder);
+    std::ofstream(folder) << "not a folder";
+    std::string out = f.run(login("ann") + "2\n1\n" + path + "\ny\n0\n0\n");
     CHECK(contains(out, "The work was not submitted because of an error"));
     CHECK(contains(out, "Please try again."));
     CHECK_FALSE(f.submissionRepo.find(f.project, f.ann));
-    CHECK(f.storedFiles() == 1);
-    CHECK(contains(f.errorLogText(), "already exists"));
+    CHECK(fs::is_regular_file(folder));  // nothing was stored
+    CHECK(contains(f.errorLogText(), "copy"));
     CHECK(countOf(out, "== Student ==") >= 2);  // back at the menu
 }
 
@@ -870,4 +871,24 @@ TEST_CASE("ST-44: UC-20 E2, a database error during release releases nothing", "
     CHECK(contains(f.errorLogText(), "simulated disk error"));
     CHECK(f.submission(f.ann).getStatus() == SubmissionStatus::Moderated);
     CHECK(f.submission(f.ben).getStatus() == SubmissionStatus::Moderated);
+}
+
+TEST_CASE("ST-46: UC-09, a file left behind by a crash does not block the next submission (code review CR-01)",
+          "[system]") {
+    SystemFixture f;
+    f.seed();
+    f.clock.set(hoursAfter(10));
+    // A crash after the copy but before the commit leaves a stored file with no database row (NFR-08).
+    std::string orphan = (f.dir.path / "submissions" /
+                          ("a" + std::to_string(f.project) + "_s" + std::to_string(f.ann) + "_v1.pdf")).string();
+    { std::ofstream(orphan) << "half-written copy"; }
+    std::string path = f.file("report.pdf", 5000);
+    std::string out = f.run(login("ann") + "2\n1\n" + path + "\ny\n0\n0\n");
+    CHECK(contains(out, "== Receipt =="));
+    CHECK_FALSE(contains(out, "not submitted"));
+    Submission sub = f.submission(f.ann);
+    CHECK(sub.currentVersion().getSha256() == f.files.sha256(path));
+    CHECK(sub.currentVersion().getStoredPath() != fs::path(orphan).generic_string());
+    std::ifstream in(orphan);
+    CHECK(std::string(std::istreambuf_iterator<char>(in), {}) == "half-written copy");  // never overwritten
 }

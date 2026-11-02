@@ -54,22 +54,45 @@ private:
     void adminBackup(const domain::Session& s);
     std::optional<int> pickUser(const domain::Session& s, std::optional<domain::Role> role, const std::string& title);
     std::optional<int> pickDepartment(const domain::Session& s);
+    static std::string userLine(const domain::User& u);
+    void createUser(const domain::Session& s);
+    void listUsers(const domain::Session& s);
+    void editUserName(const domain::Session& s);
+    void resetPassword(const domain::Session& s);
+    void deactivateUser(const domain::Session& s);
+    void createDepartment(const domain::Session& s);
+    void editDepartment(const domain::Session& s);
+    void createCourse(const domain::Session& s);
+    void editCourse(const domain::Session& s);
+    void listDepartmentsAndCourses(const domain::Session& s);
 
     // LecturerMenu.cpp
     void lecturerMenu(const domain::Session& s);
     void createAssignment(const domain::Session& s);
     void grantExtension(const domain::Session& s);
     void markSubmissions(const domain::Session& s);
+    ConsoleIO::Option markingRow(const domain::Session& s, const domain::Submission& sub);
+    void markOne(const domain::Session& s, const domain::Assignment& a, const domain::Submission& sub);
 
     // HodMenu.cpp
     void hodMenu(const domain::Session& s);
     void moderate(const domain::Session& s);
     void releaseMarks(const domain::Session& s);
+    ConsoleIO::Option queueRow(const domain::Session& s, const domain::Assignment& a);
+    ConsoleIO::Option moderationRow(const domain::Session& s, const domain::Assignment& a,
+                                    const domain::Submission& sub);
+    void moderateOne(const domain::Session& s, const domain::Assignment& a, const domain::Submission& sub);
 
     // StudentMenu.cpp
     void studentMenu(const domain::Session& s);
     void showMyAssignments(const domain::Session& s);
     void submitWork(const domain::Session& s);
+    // The steps of UC-09: each returns nothing (or false) when the student cannot go on.
+    bool canSubmit(const domain::Session& s, const domain::Assignment& a);
+    std::optional<std::string> askForFile();
+    void showLateWarning(int daysLate);
+    std::optional<domain::SubmissionVersion> storeSubmission(const domain::Session& s, const domain::Assignment& a,
+                                                             const std::string& path);
     void showMyMark(const domain::Session& s);
     // What a student is shown: a mark that is not released is just "Marked, awaiting release" (A8).
     static std::string studentStatus(domain::SubmissionStatus status);

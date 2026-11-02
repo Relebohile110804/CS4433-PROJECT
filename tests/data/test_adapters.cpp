@@ -67,7 +67,12 @@ TEST_CASE("file store copies the file and keeps its extension", "[integration][d
     CHECK(stored.size() > 4);
     CHECK(stored.substr(stored.size() - 4) == ".pdf");
     CHECK(fs::exists(stored));
-    CHECK_THROWS(store.store(source, "a1_s10_v1"));  // never overwrites a stored version
+    // A name that is taken (for example a copy left by a crash) is never overwritten (CR-01).
+    std::string again = store.store(tmp.write("essay2.pdf", "second copy"), "a1_s10_v1");
+    CHECK(again != stored);
+    CHECK(fs::path(again).filename() == "a1_s10_v1_2.pdf");
+    CHECK(store.sha256(stored) == store.sha256(source));
+    store.remove(again);
 
     store.remove(stored);
     CHECK_FALSE(fs::exists(stored));

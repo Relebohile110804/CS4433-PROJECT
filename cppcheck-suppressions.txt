@@ -1,0 +1,7 @@
+// Style suggestions kept as plain loops on purpose (see the Week 6 static analysis report):
+// building menu rows with push_back in a loop is easier to read than std::transform, and
+// effectiveDeadlineFor finds a maximum, which the any_of suggestion does not fit.
+useStlAlgorithm:src/presentation/*.cpp
+useStlAlgorithm:src/business/domain/Assignment.cpp
+useStlAlgorithm:src/business/services/AssignmentService.cpp
+missingIncludeSystem

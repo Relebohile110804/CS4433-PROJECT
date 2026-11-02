@@ -1,5 +1,7 @@
 #include "presentation/App.h"
 
+#include <algorithm>
+
 #include "business/domain/Errors.h"
 
 namespace lms::presentation {
@@ -26,9 +28,9 @@ void App::logError(const std::exception& e) {
 }
 
 std::string App::courseCode(const Session& s, int courseId) {
-    for (const Course& c : s_.assignments.myCourses(s))
-        if (c.getId() == courseId) return c.getCode();
-    return "";
+    std::vector<Course> mine = s_.assignments.myCourses(s);
+    auto it = std::find_if(mine.begin(), mine.end(), [&](const Course& c) { return c.getId() == courseId; });
+    return it == mine.end() ? "" : it->getCode();
 }
 
 void App::run() {
@@ -39,7 +41,7 @@ void App::run() {
             if (choice == 0) break;
             attempt([&] { login(); });
         }
-    } catch (const InputClosed&) {
+    } catch (const InputClosed&) {  // NOLINT(bugprone-empty-catch): the input ended, so close normally
     }
     io_.say("Goodbye.");
 }
@@ -100,7 +102,7 @@ void App::viewAuditLog(const Session& s) {
         courseId = pickCourse(s);
         if (!courseId) return;
     }
-    if (scope == 3) {
+    if (scope == 3 && courseId) {
         std::optional<Assignment> a = pickAssignment(s, *courseId);
         if (!a) return;
         assignmentId = a->getId();
@@ -108,7 +110,8 @@ void App::viewAuditLog(const Session& s) {
     std::vector<AuditEntry> entries = s_.audit.viewLog(s, courseId, assignmentId);
     io_.heading("Audit log (" + std::to_string(entries.size()) + " entries)");
     for (const AuditEntry& e : entries) {
-        std::string oldValue = e.getOldValue() ? ConsoleIO::formatMark(*e.getOldValue()) : "-";
+        const std::optional<double>& old = e.getOldValue();
+        std::string oldValue = old ? ConsoleIO::formatMark(*old) : "-";
         io_.say((ConsoleIO::formatTime(e.getChangedAt()) + "  submission " +
                                std::to_string(e.getSubmissionId()) + "  " + oldValue + " -> " +
                                ConsoleIO::formatMark(e.getNewValue()) + "  by " +
@@ -124,6 +127,7 @@ std::optional<int> App::pickCourse(const Session& s) {
         return std::nullopt;
     }
     std::vector<std::string> rows;
+    rows.reserve(courses.size());
     for (const Course& c : courses) rows.push_back(c.getCode() + "  " + c.getTitle());
     int choice = io_.menu("Choose a course", rows, "Cancel");
     if (choice == 0) return std::nullopt;
@@ -140,6 +144,7 @@ std::optional<Assignment> App::pickAssignmentFrom(const std::vector<Assignment>&
         return std::nullopt;
     }
     std::vector<std::string> rows;
+    rows.reserve(list.size());
     for (const Assignment& a : list)
         rows.push_back(a.getTitle() + "  (due " + ConsoleIO::formatTime(a.getDeadline()) + ", out of " +
                        std::to_string(a.getMaxMark()) + ")");

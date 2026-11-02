@@ -15,6 +15,7 @@ void App::lecturerMenu(const Session& s) {
             case 2: attempt([&] { grantExtension(s); }); break;
             case 3: attempt([&] { markSubmissions(s); }); break;
             case 4: attempt([&] { changePassword(s); }); break;
+            default: break;  // menu() only returns listed choices
         }
     }
 }
@@ -41,6 +42,7 @@ void App::grantExtension(const Session& s) {
     for (const Course& c : courses)
         if (c.getId() == *courseId) students.assign(c.getStudentIds().begin(), c.getStudentIds().end());
     std::vector<std::string> rows;
+    rows.reserve(students.size());
     for (int id : students)
         rows.push_back(s_.auth.nameOf(s, id) + "  due " +
                        ConsoleIO::formatTime(s_.assignments.effectiveDeadline(a->getId(), id)));
@@ -70,14 +72,9 @@ void App::markSubmissions(const Session& s) {
             io_.say("Nothing has been submitted yet.");
             return;
         }
-        // FR-14: student, status and days late, with the time received on the line below.
         std::vector<ConsoleIO::Option> rows;
-        for (const Submission& sub : list) {
-            std::string row = s_.auth.nameOf(s, sub.getStudentId()) + "  " + displayName(sub.getStatus());
-            if (sub.getDaysLate() > 0) row += ", " + std::to_string(sub.getDaysLate()) + " day(s) late";
-            if (sub.getMark()) row += ", final " + ConsoleIO::formatMark(sub.getMark()->getFinalMark());
-            rows.push_back({row, {"handed in " + ConsoleIO::formatTime(sub.currentVersion().getSubmittedAt())}});
-        }
+        rows.reserve(list.size());
+        for (const Submission& sub : list) rows.push_back(markingRow(s, sub));
         int choice = io_.detailedMenu(a->getTitle() + ": choose a submission to mark", rows);
         if (choice == 0) return;
         const Submission& sub = list[choice - 1];
@@ -88,30 +85,40 @@ void App::markSubmissions(const Session& s) {
             io_.say("Please contact the Head of Department.");
             continue;
         }
-
-        attempt([&] {
-            const SubmissionVersion& v = sub.currentVersion();
-            io_.heading("Submission by " + s_.auth.nameOf(s, sub.getStudentId()));
-            io_.say("File: " + v.getStoredPath());
-            io_.say("Version " + std::to_string(v.getVersionNo()) + ", handed in " +
-                    ConsoleIO::formatTime(v.getSubmittedAt()) + ", SHA-256 " + v.getSha256().substr(0, 8));
-            if (!sub.getHodComment().empty()) io_.say("HoD comment: " + sub.getHodComment());
-            if (sub.getMark()) io_.say("Current final mark: " + ConsoleIO::formatMark(sub.getMark()->getFinalMark()));
-
-            int raw = io_.number("Raw mark", 0, a->getMaxMark());
-            services::MarkPreview p = s_.marking.previewMark(s, sub.getId(), raw);
-            io_.say("Days late: " + std::to_string(p.daysLate) + "   Penalty: " + ConsoleIO::formatMark(p.penalty) +
-                    "   Final mark: " + ConsoleIO::formatMark(p.finalMark));
-            std::string feedback = io_.requiredText("Feedback");
-            std::string reason = sub.getMark() ? io_.requiredText("Reason for changing the mark") : "";
-            if (!io_.confirm("Save this mark")) {  // UC-16 A3
-                io_.say("Nothing was saved.");
-                return;
-            }
-            s_.marking.mark(s, sub.getId(), raw, feedback, reason);
-            io_.say("Mark saved. It now waits for the Head of Department.");
-        });
+        attempt([&] { markOne(s, *a, sub); });
     }
+}
+
+ConsoleIO::Option App::markingRow(const Session& s, const Submission& sub) {
+    // FR-14: student, status and days late, with the time received on the line below.
+    std::string row = s_.auth.nameOf(s, sub.getStudentId()) + "  " + displayName(sub.getStatus());
+    if (sub.getDaysLate() > 0) row += ", " + std::to_string(sub.getDaysLate()) + " day(s) late";
+    if (const std::optional<Mark>& mark = sub.getMark()) row += ", final " + ConsoleIO::formatMark(mark->getFinalMark());
+    return {row, {"handed in " + ConsoleIO::formatTime(sub.currentVersion().getSubmittedAt())}};
+}
+
+void App::markOne(const Session& s, const Assignment& a, const Submission& sub) {
+    const SubmissionVersion& v = sub.currentVersion();
+    const std::optional<Mark>& current = sub.getMark();
+    io_.heading("Submission by " + s_.auth.nameOf(s, sub.getStudentId()));
+    io_.say("File: " + v.getStoredPath());
+    io_.say("Version " + std::to_string(v.getVersionNo()) + ", handed in " + ConsoleIO::formatTime(v.getSubmittedAt()) +
+            ", SHA-256 " + v.getSha256().substr(0, 8));
+    if (!sub.getHodComment().empty()) io_.say("HoD comment: " + sub.getHodComment());
+    if (current) io_.say("Current final mark: " + ConsoleIO::formatMark(current->getFinalMark()));
+
+    int raw = io_.number("Raw mark", 0, a.getMaxMark());
+    services::MarkPreview p = s_.marking.previewMark(s, sub.getId(), raw);
+    io_.say("Days late: " + std::to_string(p.daysLate) + "   Penalty: " + ConsoleIO::formatMark(p.penalty) +
+            "   Final mark: " + ConsoleIO::formatMark(p.finalMark));
+    std::string feedback = io_.requiredText("Feedback");
+    std::string reason = current ? io_.requiredText("Reason for changing the mark") : "";
+    if (!io_.confirm("Save this mark")) {  // UC-16 A3
+        io_.say("Nothing was saved.");
+        return;
+    }
+    s_.marking.mark(s, sub.getId(), raw, feedback, reason);
+    io_.say("Mark saved. It now waits for the Head of Department.");
 }
 
 }  // namespace lms::presentation

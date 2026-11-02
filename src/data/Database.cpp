@@ -83,7 +83,7 @@ Transaction::~Transaction() {
     try {
         db_.exec("ROLLBACK TO " + name_);
         db_.exec("RELEASE " + name_);
-    } catch (...) {
+    } catch (...) {  // NOLINT(bugprone-empty-catch)
         // A destructor must not throw; the connection reports the error on the next statement.
     }
 }

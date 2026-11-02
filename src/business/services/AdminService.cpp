@@ -1,5 +1,7 @@
 #include "business/services/AdminService.h"
 
+#include <algorithm>
+
 #include "business/domain/Errors.h"
 #include "business/services/AuthService.h"
 #include "business/services/UserFactory.h"
@@ -90,11 +92,12 @@ void AdminService::checkHodIsFree(int hodId, int departmentId) {
 
 int AdminService::createDepartment(const Session& s, const std::string& name, int hodId) {
     s.require(Permission::ManageCourses);
-    Department d(0, name, hodId);  // checks the name is not empty
+    const Department d(0, name, hodId);  // checks the name is not empty
     checkHodIsFree(hodId, 0);
-    for (const Department& other : courses_.listDepartments())
-        if (other.getName() == name) throw RuleViolation("A department called " + name + " already exists");
-    return courses_.addDepartment(name, hodId);
+    std::vector<Department> all = courses_.listDepartments();
+    if (std::any_of(all.begin(), all.end(), [&](const Department& other) { return other.getName() == name; }))
+        throw RuleViolation("A department called " + name + " already exists");
+    return courses_.addDepartment(d.getName(), d.getHodId());
 }
 
 void AdminService::updateDepartment(const Session& s, int departmentId, const std::string& name, int hodId) {
@@ -103,9 +106,10 @@ void AdminService::updateDepartment(const Session& s, int departmentId, const st
     if (!d) throw RuleViolation("Department not found");
     d->setName(name);
     checkHodIsFree(hodId, departmentId);
-    for (const Department& other : courses_.listDepartments())
-        if (other.getName() == name && other.getId() != departmentId)
-            throw RuleViolation("A department called " + name + " already exists");
+    std::vector<Department> all = courses_.listDepartments();
+    if (std::any_of(all.begin(), all.end(),
+                    [&](const Department& other) { return other.getName() == name && other.getId() != departmentId; }))
+        throw RuleViolation("A department called " + name + " already exists");
     d->setHodId(hodId);
     courses_.updateDepartment(*d);
 }
@@ -117,10 +121,10 @@ std::vector<Department> AdminService::listDepartments(const Session& s) {
 
 int AdminService::createCourse(const Session& s, int departmentId, const std::string& code, const std::string& title) {
     s.require(Permission::ManageCourses);
-    Course c(0, departmentId, code, title);  // checks code and title are not empty
+    const Course c(0, departmentId, code, title);  // checks code and title are not empty
     if (!courses_.findDepartment(departmentId)) throw RuleViolation("Department not found");
     if (courses_.findCourseByCode(code)) throw RuleViolation("A course with code " + code + " already exists");
-    return courses_.addCourse(departmentId, code, title);
+    return courses_.addCourse(c.getDepartmentId(), c.getCode(), c.getTitle());
 }
 
 void AdminService::updateCourse(const Session& s, int courseId, const std::string& code, const std::string& title) {

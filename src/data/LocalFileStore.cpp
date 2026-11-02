@@ -26,10 +26,19 @@ bool LocalFileStore::isReadableFile(const std::string& sourcePath) {
 std::uintmax_t LocalFileStore::fileSize(const std::string& sourcePath) { return fs::file_size(sourcePath); }
 
 std::string LocalFileStore::store(const std::string& sourcePath, const std::string& key) {
-    fs::path target = fs::path(root_) / (key + fs::path(sourcePath).extension().string());
-    if (fs::exists(target)) throw std::runtime_error("A stored file with this name already exists");
-    fs::copy_file(sourcePath, target);
-    return target.generic_string();
+    // A stored file is never overwritten. If the name is taken (a copy left by a crash before the
+    // database commit, NFR-08), the next free name key_2, key_3 ... is used instead.
+    const std::string ext = fs::path(sourcePath).extension().string();
+    for (int n = 1; n <= MaxNameTries; ++n) {
+        std::string name = key;
+        if (n > 1) name += "_" + std::to_string(n);
+        name += ext;
+        fs::path target = fs::path(root_) / name;
+        if (fs::exists(target)) continue;
+        fs::copy_file(sourcePath, target);
+        return target.generic_string();
+    }
+    throw std::runtime_error("Too many stored files are named " + key);
 }
 
 std::string LocalFileStore::sha256(const std::string& storedPath) {
@@ -37,7 +46,7 @@ std::string LocalFileStore::sha256(const std::string& storedPath) {
     if (!in) throw std::runtime_error("Cannot read " + storedPath);
     crypto_hash_sha256_state state;
     crypto_hash_sha256_init(&state);
-    std::vector<char> buffer(64 * 1024);
+    std::vector<char> buffer(std::size_t{64} * 1024);
     while (in) {
         in.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
         crypto_hash_sha256_update(&state, reinterpret_cast<const unsigned char*>(buffer.data()),

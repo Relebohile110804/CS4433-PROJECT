@@ -101,3 +101,15 @@ gcovr -r . --filter src/business/ build-cov
 ```
 
 CI runs the same steps on every push, fails if business-layer coverage drops below 70%, and saves the JUnit test results and an HTML coverage report as a build artifact.
+
+## Static analysis and metrics
+
+The CI job static-analysis runs these checks on every push and fails if any of them reports a problem. It also checks the layer rules: business code never includes a data or presentation header, data code never includes a presentation header, and the menus never include a data header.
+
+```
+cppcheck --enable=warning,style,performance,portability --std=c++17 --language=c++ --inline-suppr -I src --suppressions-list=cppcheck-suppressions.txt --error-exitcode=1 src
+run-clang-tidy -p build -quiet "$PWD/src/"
+lizard src -l cpp -C 10 -w
+```
+
+clang-tidy needs a build folder made with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`, and reads its checks from .clang-tidy. lizard (`pip install lizard`) fails if any function has a cyclomatic complexity above 10. The three reports are saved as a build artifact.

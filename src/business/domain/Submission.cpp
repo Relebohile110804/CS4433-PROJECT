@@ -1,5 +1,6 @@
 #include "business/domain/Submission.h"
 
+#include <algorithm>
 #include <cctype>
 
 #include "business/domain/Errors.h"
@@ -14,9 +15,7 @@ void refuse(SubmissionStatus current, const std::string& action) {
 
 bool isSha256Hex(const std::string& text) {
     if (text.size() != 64) return false;
-    for (char c : text)
-        if (!std::isxdigit(static_cast<unsigned char>(c))) return false;
-    return true;
+    return std::all_of(text.begin(), text.end(), [](char c) { return std::isxdigit(static_cast<unsigned char>(c)) != 0; });
 }
 
 }  // namespace
@@ -108,6 +107,7 @@ void Submission::approve(int hodId, TimePoint at) {
 
 void Submission::adjust(double newFinal, int hodId, TimePoint at) {
     if (status_ != SubmissionStatus::Marked && status_ != SubmissionStatus::Released) refuse(status_, "adjust");
+    if (!mark_) throw RuleViolation("This submission has no mark to adjust");
     mark_->setFinalMark(newFinal);
     moderatedBy_ = hodId;
     moderatedAt_ = at;

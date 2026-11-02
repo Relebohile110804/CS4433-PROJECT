@@ -10,6 +10,9 @@ namespace {
 // The same message for an unknown username and a wrong password, so the
 // screen does not reveal which usernames exist.
 const char* const WrongLogin = "Wrong username or password";
+
+// The lockout time as the user reads it, taken from the same constant the rule uses (FR-02).
+std::string lockoutText() { return std::to_string(User::LockoutTime.count()) + " minutes"; }
 }  // namespace
 
 Session AuthService::login(const std::string& username, const std::string& password) {
@@ -19,13 +22,13 @@ Session AuthService::login(const std::string& username, const std::string& passw
     TimePoint now = clock_.now();
     if (!user->isActive()) throw RuleViolation("This account has been deactivated. Please see the administrator");
     if (user->isLocked(now))
-        throw RuleViolation("This account is locked after too many failed logins. Try again in 15 minutes");
+        throw RuleViolation("This account is locked after too many failed logins. Try again in " + lockoutText());
 
     if (!hasher_.verify(user->getPasswordHash(), password)) {
         user->recordFailedLogin(now);  // FR-02: the fifth failure in a row locks the account
         users_.update(*user);
         if (user->isLocked(now))
-            throw RuleViolation("Too many failed logins. This account is locked for 15 minutes");
+            throw RuleViolation("Too many failed logins. This account is locked for " + lockoutText());
         throw RuleViolation(WrongLogin);
     }
 

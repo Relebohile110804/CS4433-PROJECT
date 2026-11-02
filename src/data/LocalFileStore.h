@@ -15,6 +15,7 @@ public:
     void remove(const std::string& storedPath) override;
 
 private:
+    static constexpr int MaxNameTries = 100;
     std::string root_;
 };
 

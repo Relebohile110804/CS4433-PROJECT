@@ -12,7 +12,8 @@ public:
     virtual bool isReadableFile(const std::string& sourcePath) = 0;
     virtual std::uintmax_t fileSize(const std::string& sourcePath) = 0;
     // Copies the file into the store under a name made from the key and the
-    // original extension, and returns the stored path.
+    // original extension, and returns the stored path. An existing stored file is
+    // never overwritten: if the name is taken, a free name is used instead.
     virtual std::string store(const std::string& sourcePath, const std::string& key) = 0;
     // SHA-256 of the file as 64 lowercase hex characters (FR-11).
     virtual std::string sha256(const std::string& storedPath) = 0;

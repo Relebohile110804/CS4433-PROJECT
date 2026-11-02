@@ -1,0 +1,15 @@
+# Checks run in CI (Week 6). Every finding fails the build.
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  performance-*,
+  -performance-enum-size,
+  clang-analyzer-*,
+  misc-unused-*,
+  modernize-use-override,
+  modernize-use-nullptr,
+  readability-else-after-return,
+  readability-redundant-*
+WarningsAsErrors: '*'
+HeaderFilterRegex: 'src/.*'

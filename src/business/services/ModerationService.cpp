@@ -1,5 +1,7 @@
 #include "business/services/ModerationService.h"
 
+#include <algorithm>
+
 #include "business/domain/Errors.h"
 
 namespace lms::services {
@@ -32,12 +34,12 @@ std::vector<Assignment> ModerationService::queue(const Session& s) {
     int dept = ownDepartment(s);
     std::vector<Assignment> result;
     for (const Course& c : courses_.coursesInDepartment(dept))
-        for (Assignment& a : assignments_.forCourse(c.getId()))
-            for (const Submission& sub : submissions_.forAssignment(a.getId()))
-                if (sub.isMarked()) {  // BR-06: released marks can still be corrected
-                    result.push_back(std::move(a));
-                    break;
-                }
+        for (Assignment& a : assignments_.forCourse(c.getId())) {
+            std::vector<Submission> subs = submissions_.forAssignment(a.getId());
+            // BR-06: any marked work, so released marks can still be corrected
+            if (std::any_of(subs.begin(), subs.end(), [](const Submission& sub) { return sub.isMarked(); }))
+                result.push_back(std::move(a));
+        }
     return result;
 }
 
@@ -57,13 +59,14 @@ void ModerationService::approve(const Session& s, int submissionId) {
 
 void ModerationService::adjust(const Session& s, int submissionId, double newMark, const std::string& reason) {
     Submission sub = departmentSubmission(s, submissionId);
-    Assignment a = *assignments_.findById(sub.getAssignmentId());
+    Assignment a = departmentAssignment(s, sub.getAssignmentId());
     if (isBlank(reason)) throw RuleViolation("A reason is needed to adjust a mark");
     if (newMark < 0 || newMark > a.getMaxMark())
         throw RuleViolation("The new mark must be from 0 to " + std::to_string(a.getMaxMark()));
-    if (!sub.isMarked()) throw RuleViolation("This submission has not been marked yet");
+    const std::optional<Mark>& current = sub.getMark();
+    if (!current) throw RuleViolation("This submission has not been marked yet");
 
-    double oldValue = sub.getMark()->getFinalMark();
+    double oldValue = current->getFinalMark();
     sub.adjust(newMark, s.getUser().getId(), clock_.now());
     auto t = tx_.begin();  // BR-07
     submissions_.save(sub);

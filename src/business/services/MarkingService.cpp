@@ -45,7 +45,7 @@ void MarkingService::mark(const Session& s, int submissionId, int rawMark, const
     MarkPreview p = calculate(*sub, a, rawMark);
 
     std::optional<double> oldValue;
-    if (sub->getMark()) oldValue = sub->getMark()->getFinalMark();
+    if (const std::optional<Mark>& current = sub->getMark()) oldValue = current->getFinalMark();
     if (oldValue && isBlank(reason)) throw RuleViolation("A reason is needed to change a mark");
 
     sub->recordMark(Mark(rawMark, p.penalty, p.finalMark, feedback, s.getUser().getId(), clock_.now()));
