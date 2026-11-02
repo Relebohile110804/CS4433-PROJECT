@@ -1,4 +1,4 @@
-Moderated LMS - version 1.0.0
+Moderated LMS - version 1.1.0
 =============================
 
 Start the program

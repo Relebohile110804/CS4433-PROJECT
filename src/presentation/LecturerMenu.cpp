@@ -50,13 +50,21 @@ void App::grantExtension(const Session& s) {
         io_.say("No students are enrolled in this course.");
         return;
     }
+    // CR1: the whole class is the last choice, so the student numbers stay as they were in v1.0.0.
+    rows.push_back("The whole class  due " + ConsoleIO::formatTime(a->classDeadline()));
     int choice = io_.menu("Choose a student", rows, "Cancel");
     if (choice == 0) return;
+    bool wholeClass = choice == static_cast<int>(rows.size());
 
     TimePoint newDeadline = io_.dateTime("New deadline, Lesotho time");
     std::string reason = io_.requiredText("Reason");
-    s_.assignments.grantExtension(s, a->getId(), students[choice - 1], newDeadline, reason);
-    io_.say("Extension granted.");
+    if (wholeClass) {
+        s_.assignments.grantClassExtension(s, a->getId(), newDeadline, reason);
+        io_.say("Extension granted to the whole class.");
+    } else {
+        s_.assignments.grantExtension(s, a->getId(), students[choice - 1], newDeadline, reason);
+        io_.say("Extension granted.");
+    }
 }
 
 void App::markSubmissions(const Session& s) {

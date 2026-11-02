@@ -29,15 +29,32 @@ Assignment::Assignment(int id, int courseId, std::string title, std::string desc
 }
 
 TimePoint Assignment::effectiveDeadlineFor(int studentId) const {
-    TimePoint effective = deadline_;
-    for (const Extension& e : extensions_)
-        if (e.getStudentId() == studentId && e.getNewDeadline() > effective) effective = e.getNewDeadline();
-    return effective;
+    const Extension* e = extensionFor(studentId);
+    return e ? e->getNewDeadline() : deadline_;
+}
+
+TimePoint Assignment::classDeadline() const { return effectiveDeadlineFor(Extension::WholeClass); }
+
+const Extension* Assignment::extensionFor(int studentId) const {
+    const Extension* latest = nullptr;
+    TimePoint best = deadline_;
+    for (const Extension& e : extensions_) {
+        bool applies = e.isWholeClass() || e.getStudentId() == studentId;
+        if (applies && e.getNewDeadline() > best) {
+            best = e.getNewDeadline();
+            latest = &e;
+        }
+    }
+    return latest;
 }
 
 void Assignment::addExtension(const Extension& e, TimePoint now) {
-    if (e.getNewDeadline() <= effectiveDeadlineFor(e.getStudentId()))
+    if (e.isWholeClass()) {
+        if (e.getNewDeadline() <= classDeadline())
+            throw RuleViolation("The new deadline must be later than the current deadline of the class");
+    } else if (e.getNewDeadline() <= effectiveDeadlineFor(e.getStudentId())) {
         throw RuleViolation("The new deadline must be later than the student's current deadline");
+    }
     if (e.getNewDeadline() <= now) throw RuleViolation("The new deadline must be in the future");
     extensions_.push_back(e);
 }

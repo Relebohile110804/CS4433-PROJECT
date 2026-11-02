@@ -103,6 +103,7 @@ Database::Database(const std::string& path) : path_(path) {
     }
     exec("PRAGMA foreign_keys = ON");  // SQLite leaves them off by default
     createSchemaIfNew();
+    upgradeSchema();
 }
 
 Database::~Database() { sqlite3_close(handle_); }
@@ -126,6 +127,13 @@ void Database::createSchemaIfNew() {
     Statement count = prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'users'");
     count.step();
     if (count.columnInt(0) == 0) exec(kSchemaSql);
+}
+
+void Database::upgradeSchema() {
+    const std::string schema = kSchemaSql;
+    std::size_t start = schema.find("-- Upgrades:");
+    if (start == std::string::npos) throw DatabaseError("schema.sql has no Upgrades part");
+    exec(schema.substr(start));
 }
 
 namespace {
@@ -179,6 +187,7 @@ void Database::restoreFrom(const std::string& path) {
     }
     sqlite3_close(source);
     exec("PRAGMA foreign_keys = ON");
+    upgradeSchema();  // a backup made by an older version gets the new tables
 }
 
 }  // namespace lms::data

@@ -154,6 +154,31 @@ TEST_CASE("assignments with extensions", "[integration][data]") {
     CHECK_FALSE(s.assignments.findById(999));
 }
 
+TEST_CASE("CR1: whole-class extensions are stored in their own table and loaded with the assignment",
+          "[integration][data]") {
+    School s;
+    int id = s.addAssignment();
+    s.assignments.addExtension(id, Extension(0, s.student1, hoursAfter(96), "Illness", s.lecturer, hoursAfter(1)));
+    s.assignments.addExtension(id, Extension(0, Extension::WholeClass, hoursAfter(72), "Power cut", s.lecturer,
+                                             hoursAfter(2)));
+
+    auto a = s.assignments.findById(id);
+    REQUIRE(a);
+    REQUIRE(a->getExtensions().size() == 2);
+    const Extension& whole = a->getExtensions()[1];
+    CHECK(whole.isWholeClass());
+    CHECK(whole.getReason() == "Power cut");
+    CHECK(whole.getGrantedBy() == s.lecturer);
+    CHECK(whole.getGrantedAt() == hoursAfter(2));
+    CHECK(a->effectiveDeadlineFor(s.student1) == hoursAfter(96));
+    CHECK(a->effectiveDeadlineFor(s.student2) == hoursAfter(72));
+    CHECK(s.assignments.forCourse(s.course).front().classDeadline() == hoursAfter(72));
+
+    Statement rows = s.db.prepare("SELECT count(*) FROM extensions");
+    rows.step();
+    CHECK(rows.columnInt(0) == 1);  // the whole-class one is not in the individual table
+}
+
 TEST_CASE("submission life cycle is stored: versions, mark, moderation, release", "[integration][data]") {
     School s;
     int aId = s.addAssignment();

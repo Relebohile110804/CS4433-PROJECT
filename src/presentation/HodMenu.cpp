@@ -72,9 +72,13 @@ ConsoleIO::Option App::moderationRow(const Session& s, const Assignment& a, cons
                               ", penalty " + ConsoleIO::formatMark(m.getPenalty()) + ", final " +
                               ConsoleIO::formatMark(m.getFinalMark()) + "  " + displayName(sub.getStatus()),
                           {"Marked by " + s_.auth.nameOf(s, m.getMarkedBy()) + ": " + m.getFeedback()}};
-    for (const Extension& e : a.getExtensions())
-        if (e.getStudentId() == sub.getStudentId())
+    for (const Extension& e : a.getExtensions()) {
+        if (e.isWholeClass())
+            row.details.push_back("Whole-class extension to " + ConsoleIO::formatTime(e.getNewDeadline()) + ": " +
+                                  e.getReason());
+        else if (e.getStudentId() == sub.getStudentId())
             row.details.push_back("Extension to " + ConsoleIO::formatTime(e.getNewDeadline()) + ": " + e.getReason());
+    }
     return row;
 }
 

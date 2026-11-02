@@ -19,6 +19,13 @@ std::vector<Assignment> SqliteAssignmentRepository::load(Statement& st) {
         while (ext.step())
             a.restoreExtension(Extension(ext.columnInt(0), ext.columnInt(1), fromIsoText(ext.columnText(2)),
                                          ext.columnText(3), ext.columnInt(4), fromIsoText(ext.columnText(5))));
+        Statement cls = db_.prepare(
+            "SELECT class_extension_id, new_deadline, reason, granted_by, granted_at FROM class_extensions "
+            "WHERE assignment_id = ?1 ORDER BY class_extension_id");
+        cls.bindInt(1, a.getId());
+        while (cls.step())
+            a.restoreExtension(Extension(cls.columnInt(0), Extension::WholeClass, fromIsoText(cls.columnText(1)),
+                                         cls.columnText(2), cls.columnInt(3), fromIsoText(cls.columnText(4))));
     }
     return result;
 }
@@ -54,12 +61,14 @@ int SqliteAssignmentRepository::add(const Assignment& a) {
 }
 
 int SqliteAssignmentRepository::addExtension(int assignmentId, const Extension& e) {
-    Statement st = db_.prepare(
-        "INSERT INTO extensions (assignment_id, student_id, new_deadline, reason, granted_by, granted_at) "
-        "VALUES (?1, ?2, ?3, ?4, ?5, ?6)");
-    st.bindInt(1, assignmentId)
-        .bindInt(2, e.getStudentId())
-        .bindText(3, toIsoText(e.getNewDeadline()))
+    Statement st = e.isWholeClass()
+                       ? db_.prepare("INSERT INTO class_extensions (assignment_id, new_deadline, reason, granted_by, "
+                                     "granted_at) VALUES (?1, ?3, ?4, ?5, ?6)")
+                       : db_.prepare("INSERT INTO extensions (assignment_id, student_id, new_deadline, reason, "
+                                     "granted_by, granted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)");
+    st.bindInt(1, assignmentId);
+    if (!e.isWholeClass()) st.bindInt(2, e.getStudentId());
+    st.bindText(3, toIsoText(e.getNewDeadline()))
         .bindText(4, e.getReason())
         .bindInt(5, e.getGrantedBy())
         .bindText(6, toIsoText(e.getGrantedAt()))

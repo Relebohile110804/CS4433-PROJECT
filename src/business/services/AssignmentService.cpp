@@ -28,6 +28,14 @@ int AssignmentService::createAssignment(const Session& s, int courseId, const st
     return assignments_.add(a);
 }
 
+void AssignmentService::addExtension(const Session& s, Assignment& a, int studentId, TimePoint newDeadline,
+                                     const std::string& reason) {
+    TimePoint now = clock_.now();
+    Extension e(0, studentId, newDeadline, reason, s.getUser().getId(), now);  // checks the reason
+    a.addExtension(e, now);  // checks the new deadline (BR-03)
+    assignments_.addExtension(a.getId(), e);
+}
+
 void AssignmentService::grantExtension(const Session& s, int assignmentId, int studentId, TimePoint newDeadline,
                                        const std::string& reason) {
     s.require(Permission::GrantExtension);
@@ -35,11 +43,15 @@ void AssignmentService::grantExtension(const Session& s, int assignmentId, int s
     requireTeaches(s, a.getCourseId());
     if (!courses_.isEnrolled(studentId, a.getCourseId()))
         throw RuleViolation("That student is not enrolled in this course");
+    addExtension(s, a, studentId, newDeadline, reason);
+}
 
-    TimePoint now = clock_.now();
-    Extension e(0, studentId, newDeadline, reason, s.getUser().getId(), now);  // checks the reason
-    a.addExtension(e, now);  // checks the new deadline (BR-03)
-    assignments_.addExtension(assignmentId, e);
+void AssignmentService::grantClassExtension(const Session& s, int assignmentId, TimePoint newDeadline,
+                                            const std::string& reason) {
+    s.require(Permission::GrantExtension);
+    Assignment a = existingAssignment(assignmentId);
+    requireTeaches(s, a.getCourseId());
+    addExtension(s, a, Extension::WholeClass, newDeadline, reason);
 }
 
 TimePoint AssignmentService::effectiveDeadline(int assignmentId, int studentId) {

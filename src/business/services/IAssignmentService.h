@@ -19,7 +19,11 @@ public:
     // FR-09, BR-03: a lecturer gives one student a later deadline, with a reason.
     virtual void grantExtension(const domain::Session& s, int assignmentId, int studentId,
                                 domain::TimePoint newDeadline, const std::string& reason) = 0;
-    // The student's own deadline: the latest extension if there is one, otherwise the assignment deadline.
+    // CR1, FR-09, BR-03: a lecturer gives every student of the course a later deadline, with a reason.
+    virtual void grantClassExtension(const domain::Session& s, int assignmentId, domain::TimePoint newDeadline,
+                                     const std::string& reason) = 0;
+    // The student's own deadline: the latest of the assignment deadline, whole-class extensions
+    // and the student's own extensions.
     virtual domain::TimePoint effectiveDeadline(int assignmentId, int studentId) = 0;
     // FR-10: the assignments in every course the student is enrolled in.
     virtual std::vector<domain::Assignment> listForStudent(const domain::Session& s) = 0;

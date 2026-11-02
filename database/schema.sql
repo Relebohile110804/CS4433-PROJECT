@@ -116,3 +116,18 @@ CREATE INDEX idx_assignments_course   ON assignments (course_id);
 CREATE INDEX idx_extensions_lookup    ON extensions (assignment_id, student_id);
 CREATE INDEX idx_submissions_student  ON submissions (student_id);
 CREATE INDEX idx_audit_submission     ON audit_log (submission_id);
+
+-- Upgrades: everything below this line can be run again on an existing database without harm
+-- (IF NOT EXISTS). The program runs it every time it opens lms.db and after a restore, so a
+-- database made by an older version is brought up to date by itself.
+
+-- v1.1.0, CR1: an extension for every student of the course on one assignment (BR-03)
+CREATE TABLE IF NOT EXISTS class_extensions (
+    class_extension_id  INTEGER PRIMARY KEY,
+    assignment_id       INTEGER NOT NULL REFERENCES assignments (assignment_id),
+    new_deadline        TEXT    NOT NULL,
+    reason              TEXT    NOT NULL CHECK (length(trim(reason)) > 0),
+    granted_by          INTEGER NOT NULL REFERENCES users (user_id),
+    granted_at          TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_class_extensions_assignment ON class_extensions (assignment_id);

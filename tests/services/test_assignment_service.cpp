@@ -114,6 +114,42 @@ TEST_CASE("FR-09, BR-03: extension rules", "[unit][service]") {
                       "The new deadline must be in the future");
 }
 
+TEST_CASE("CR1, FR-09: a lecturer grants the whole class an extension", "[unit][service]") {
+    AssignmentFixture f;
+    int a = f.project();
+    f.courses.enrol(f.course, f.otherStudent);
+    Session lect = f.as(f.lecturer);
+
+    f.service.grantClassExtension(lect, a, hoursAfter(72), "Power cut on Friday");
+    CHECK(f.service.effectiveDeadline(a, f.student) == hoursAfter(72));
+    CHECK(f.service.effectiveDeadline(a, f.otherStudent) == hoursAfter(72));
+    auto stored = f.assignments.findById(a);
+    REQUIRE(stored->getExtensions().size() == 1);
+    CHECK(stored->getExtensions()[0].isWholeClass());
+    CHECK(stored->getExtensions()[0].getGrantedBy() == f.lecturer);
+    CHECK(stored->getExtensions()[0].getReason() == "Power cut on Friday");
+
+    CHECK_THROWS_WITH(f.service.grantClassExtension(lect, a, hoursAfter(96), " "), "An extension needs a reason");
+    CHECK_THROWS_WITH(f.service.grantClassExtension(lect, a, hoursAfter(72), "Again"),
+                      "The new deadline must be later than the current deadline of the class");
+    CHECK_THROWS_WITH(f.service.grantClassExtension(lect, 999, hoursAfter(96), "Sick"), "Assignment not found");
+    CHECK_THROWS_AS(f.service.grantClassExtension(f.as(f.student), a, hoursAfter(96), "Sick"), AccessDenied);
+    CHECK_THROWS_AS(f.service.grantClassExtension(f.as(f.hod), a, hoursAfter(96), "Sick"), AccessDenied);
+    // The whole-class id is not a student, so it cannot be used for an individual extension.
+    CHECK_THROWS_WITH(f.service.grantExtension(lect, a, Extension::WholeClass, hoursAfter(96), "Sick"),
+                      "That student is not enrolled in this course");
+}
+
+TEST_CASE("CR1: only a lecturer of the course can extend it for the whole class", "[unit][service]") {
+    AssignmentFixture f;
+    int a = f.project();
+    int other = f.addUser(Role::Lecturer, "lect2", "S201");
+    f.courses.addLecturer(f.otherCourse, other);
+    CHECK_THROWS_WITH(f.service.grantClassExtension(f.as(other), a, hoursAfter(96), "Sick"),
+                      "You do not teach this course");
+    CHECK(f.service.effectiveDeadline(a, f.student) == hoursAfter(48));
+}
+
 TEST_CASE("FR-10: a student sees the assignments of their own courses only", "[unit][service]") {
     AssignmentFixture f;
     f.project();
