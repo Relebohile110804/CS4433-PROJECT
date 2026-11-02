@@ -1,6 +1,9 @@
 #include "presentation/ConsoleIO.h"
 
 #include <algorithm>
+#include <cerrno>
+#include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <iostream>
 #include <regex>
@@ -36,6 +39,27 @@ void civilFromDays(long long z, int& y, unsigned& m, unsigned& d) {
     d = doy - (153 * mp + 2) / 5 + 1;
     m = mp < 10 ? mp + 3 : mp - 9;
     y = static_cast<int>(yoe + era * 400) + (m <= 2);
+}
+
+// The whole text must be a number; no exceptions are used, so a typing mistake is just "false".
+bool parseWhole(const std::string& text, long& out) {
+    if (text.empty()) return false;
+    errno = 0;
+    char* end = nullptr;
+    long value = std::strtol(text.c_str(), &end, 10);
+    if (errno == ERANGE || end != text.c_str() + text.size()) return false;
+    out = value;
+    return true;
+}
+
+bool parseDecimal(const std::string& text, double& out) {
+    if (text.empty()) return false;
+    errno = 0;
+    char* end = nullptr;
+    double value = std::strtod(text.c_str(), &end);
+    if (errno == ERANGE || end != text.c_str() + text.size() || !std::isfinite(value)) return false;
+    out = value;
+    return true;
 }
 
 bool isLeap(int y) { return (y % 4 == 0 && y % 100 != 0) || y % 400 == 0; }
@@ -79,12 +103,8 @@ std::string ConsoleIO::requiredText(const std::string& prompt) {
 int ConsoleIO::number(const std::string& prompt, int min, int max) {
     for (;;) {
         std::string value = text(prompt + " (" + std::to_string(min) + "-" + std::to_string(max) + ")");
-        try {
-            std::size_t used = 0;
-            int n = std::stoi(value, &used);
-            if (used == value.size() && n >= min && n <= max) return n;
-        } catch (const std::exception&) {
-        }
+        long n = 0;
+        if (parseWhole(value, n) && n >= min && n <= max) return static_cast<int>(n);
         error("Please type a whole number from " + std::to_string(min) + " to " + std::to_string(max) + ".");
     }
 }
@@ -92,12 +112,8 @@ int ConsoleIO::number(const std::string& prompt, int min, int max) {
 double ConsoleIO::decimal(const std::string& prompt, double min, double max) {
     for (;;) {
         std::string value = text(prompt + " (" + formatMark(min) + "-" + formatMark(max) + ")");
-        try {
-            std::size_t used = 0;
-            double n = std::stod(value, &used);
-            if (used == value.size() && n >= min && n <= max) return n;
-        } catch (const std::exception&) {
-        }
+        double n = 0;
+        if (parseDecimal(value, n) && n >= min && n <= max) return n;
         error("Please type a number from " + formatMark(min) + " to " + formatMark(max) + ".");
     }
 }
@@ -152,10 +168,11 @@ std::optional<domain::TimePoint> ConsoleIO::parseDateTime(const std::string& tex
 
 std::string ConsoleIO::formatTime(domain::TimePoint t) {
     auto minutes = std::chrono::duration_cast<std::chrono::minutes>(t.time_since_epoch() + UtcOffset).count();
-    long long days = minutes / (24 * 60);
-    long long rest = minutes % (24 * 60);
+    const long long minutesPerDay = 24LL * 60;
+    long long days = minutes / minutesPerDay;
+    long long rest = minutes % minutesPerDay;
     if (rest < 0) {
-        rest += 24 * 60;
+        rest += minutesPerDay;
         --days;
     }
     int y;
@@ -194,7 +211,8 @@ std::vector<std::string> ConsoleIO::wrap(const std::string& text, std::size_t wi
         lines.push_back(line);
         std::size_t next = rest.find_first_not_of(' ', atSpace ? cut + 1 : cut);
         if (next == std::string::npos) return lines;
-        rest = indent + rest.substr(next);
+        rest.erase(0, next);
+        rest.insert(0, indent);
     }
     lines.push_back(rest);
     return lines;

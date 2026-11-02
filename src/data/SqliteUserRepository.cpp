@@ -25,8 +25,8 @@ std::unique_ptr<User> readUser(const Statement& st) {
 }
 
 void bindLockedUntil(Statement& st, int index, const User& user) {
-    if (user.getLockedUntil())
-        st.bindText(index, toIsoText(*user.getLockedUntil()));
+    if (const auto& lockedUntil = user.getLockedUntil())
+        st.bindText(index, toIsoText(*lockedUntil));
     else
         st.bindNull(index);
 }

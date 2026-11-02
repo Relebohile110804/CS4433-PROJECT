@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 
 #include "business/domain/Errors.h"
 
@@ -15,9 +16,8 @@ bool SubmissionService::isAllowedFileType(const std::string& filePath) {
     if (dot == std::string::npos || (slash != std::string::npos && dot < slash)) return false;
     std::string ext = filePath.substr(dot);
     std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
-    for (const char* allowed : {".pdf", ".docx", ".txt", ".zip", ".cpp", ".h"})
-        if (ext == allowed) return true;
-    return false;
+    static const char* const allowed[] = {".pdf", ".docx", ".txt", ".zip", ".cpp", ".h"};
+    return std::any_of(std::begin(allowed), std::end(allowed), [&](const char* a) { return ext == a; });
 }
 
 // The assignment, after checking the student is enrolled in its course (BR-05).
@@ -58,7 +58,7 @@ void SubmissionService::validateFile(const std::string& filePath) { checkFile(fi
 
 int SubmissionService::penaltyPercent(int daysLate) const {
     // Worked out from the policy itself, so the message always matches BR-01.
-    return static_cast<int>(100 - policy_.finalMark(100, 100, daysLate) + 0.5);
+    return static_cast<int>(std::lround(100 - policy_.finalMark(100, 100, daysLate)));
 }
 
 SubmissionVersion SubmissionService::submit(const Session& s, int assignmentId, const std::string& filePath) {
@@ -107,8 +107,9 @@ Mark SubmissionService::viewReleasedMark(const Session& s, int assignmentId) {
     ownAssignment(s, assignmentId);
     std::optional<Submission> sub = submissions_.find(assignmentId, s.getUser().getId());
     if (!sub) throw RuleViolation("You have not submitted this assignment");
-    if (!sub->isVisibleToStudent()) throw RuleViolation("Your mark has not been released yet");
-    return *sub->getMark();
+    const std::optional<Mark>& mark = sub->getMark();
+    if (!sub->isVisibleToStudent() || !mark) throw RuleViolation("Your mark has not been released yet");
+    return *mark;
 }
 
 }  // namespace lms::services

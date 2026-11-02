@@ -15,6 +15,7 @@ void App::hodMenu(const Session& s) {
             case 2: attempt([&] { releaseMarks(s); }); break;
             case 3: attempt([&] { viewAuditLog(s); }); break;
             case 4: attempt([&] { changePassword(s); }); break;
+            default: break;  // menu() only returns listed choices
         }
     }
 }
@@ -27,23 +28,8 @@ void App::moderate(const Session& s) {
         return;
     }
     std::vector<ConsoleIO::Option> rows;
-    for (const Assignment& a : queue) {
-        int waiting = 0, moderated = 0, returned = 0, released = 0;
-        for (const Submission& sub : s_.moderation.listForModeration(s, a.getId())) {
-            switch (sub.getStatus()) {
-                case SubmissionStatus::Marked: ++waiting; break;
-                case SubmissionStatus::Moderated: ++moderated; break;
-                case SubmissionStatus::Returned: ++returned; break;
-                case SubmissionStatus::Released: ++released; break;
-                default: break;
-            }
-        }
-        rows.push_back({a.getTitle() + " (" + courseCode(s, a.getCourseId()) + "), due " +
-                            ConsoleIO::formatTime(a.getDeadline()),
-                        {std::to_string(waiting) + " awaiting moderation, " + std::to_string(moderated) +
-                         " moderated, " + std::to_string(returned) + " returned, " + std::to_string(released) +
-                         " released"}});
-    }
+    rows.reserve(queue.size());
+    for (const Assignment& a : queue) rows.push_back(queueRow(s, a));
     int pick = io_.detailedMenu("Choose an assignment", rows, "Cancel");
     if (pick == 0) return;
     const Assignment& a = queue[pick - 1];
@@ -52,44 +38,67 @@ void App::moderate(const Session& s) {
         // Step 2: marks, feedback, marker and any extension, read again after every action.
         std::vector<Submission> list = s_.moderation.listForModeration(s, a.getId());
         std::vector<ConsoleIO::Option> subs;
-        for (const Submission& sub : list) {
-            const Mark& m = *sub.getMark();
-            ConsoleIO::Option row{s_.auth.nameOf(s, sub.getStudentId()) + "  raw " + std::to_string(m.getRawMark()) +
-                                      ", penalty " + ConsoleIO::formatMark(m.getPenalty()) + ", final " +
-                                      ConsoleIO::formatMark(m.getFinalMark()) + "  " + displayName(sub.getStatus()),
-                                  {"Marked by " + s_.auth.nameOf(s, m.getMarkedBy()) + ": " + m.getFeedback()}};
-            for (const Extension& e : a.getExtensions())
-                if (e.getStudentId() == sub.getStudentId())
-                    row.details.push_back("Extension to " + ConsoleIO::formatTime(e.getNewDeadline()) + ": " +
-                                          e.getReason());
-            subs.push_back(row);
-        }
+        subs.reserve(list.size());
+        for (const Submission& sub : list) subs.push_back(moderationRow(s, a, sub));
         int choice = io_.detailedMenu(a.getTitle() + ": choose a submission", subs);
         if (choice == 0) return;
         const Submission& sub = list[choice - 1];
+        attempt([&] { moderateOne(s, a, sub); });
+    }
+}
 
-        attempt([&] {
-            io_.heading("Submission by " + s_.auth.nameOf(s, sub.getStudentId()));
-            io_.say("Feedback: " + sub.getMark()->getFeedback());
-            int action = io_.menu("What do you want to do",
-                                  {"Approve the mark", "Adjust the mark", "Return to the lecturer"}, "Cancel");
-            switch (action) {
-                case 1:
-                    s_.moderation.approve(s, sub.getId());
-                    io_.say("Mark approved.");
-                    break;
-                case 2: {
-                    double mark = io_.decimal("New final mark", 0, a.getMaxMark());
-                    s_.moderation.adjust(s, sub.getId(), mark, io_.requiredText("Reason"));
-                    io_.say("Mark adjusted.");
-                    break;
-                }
-                case 3:
-                    s_.moderation.returnForRemarking(s, sub.getId(), io_.requiredText("Comment for the lecturer"));
-                    io_.say("Returned to the lecturer.");
-                    break;
-            }
-        });
+ConsoleIO::Option App::queueRow(const Session& s, const Assignment& a) {
+    int waiting = 0, moderated = 0, returned = 0, released = 0;
+    for (const Submission& sub : s_.moderation.listForModeration(s, a.getId())) {
+        switch (sub.getStatus()) {
+            case SubmissionStatus::Marked: ++waiting; break;
+            case SubmissionStatus::Moderated: ++moderated; break;
+            case SubmissionStatus::Returned: ++returned; break;
+            case SubmissionStatus::Released: ++released; break;
+            default: break;
+        }
+    }
+    return {a.getTitle() + " (" + courseCode(s, a.getCourseId()) + "), due " + ConsoleIO::formatTime(a.getDeadline()),
+            {std::to_string(waiting) + " awaiting moderation, " + std::to_string(moderated) + " moderated, " +
+             std::to_string(returned) + " returned, " + std::to_string(released) + " released"}};
+}
+
+ConsoleIO::Option App::moderationRow(const Session& s, const Assignment& a, const Submission& sub) {
+    // listForModeration returns marked work only, so the mark is always there.
+    const std::optional<Mark>& mark = sub.getMark();
+    if (!mark) return {s_.auth.nameOf(s, sub.getStudentId()) + "  " + displayName(sub.getStatus()), {}};
+    const Mark& m = *mark;
+    ConsoleIO::Option row{s_.auth.nameOf(s, sub.getStudentId()) + "  raw " + std::to_string(m.getRawMark()) +
+                              ", penalty " + ConsoleIO::formatMark(m.getPenalty()) + ", final " +
+                              ConsoleIO::formatMark(m.getFinalMark()) + "  " + displayName(sub.getStatus()),
+                          {"Marked by " + s_.auth.nameOf(s, m.getMarkedBy()) + ": " + m.getFeedback()}};
+    for (const Extension& e : a.getExtensions())
+        if (e.getStudentId() == sub.getStudentId())
+            row.details.push_back("Extension to " + ConsoleIO::formatTime(e.getNewDeadline()) + ": " + e.getReason());
+    return row;
+}
+
+void App::moderateOne(const Session& s, const Assignment& a, const Submission& sub) {
+    io_.heading("Submission by " + s_.auth.nameOf(s, sub.getStudentId()));
+    if (const std::optional<Mark>& mark = sub.getMark()) io_.say("Feedback: " + mark->getFeedback());
+    int action = io_.menu("What do you want to do", {"Approve the mark", "Adjust the mark", "Return to the lecturer"},
+                          "Cancel");
+    switch (action) {
+        case 1:
+            s_.moderation.approve(s, sub.getId());
+            io_.say("Mark approved.");
+            break;
+        case 2: {
+            double mark = io_.decimal("New final mark", 0, a.getMaxMark());
+            s_.moderation.adjust(s, sub.getId(), mark, io_.requiredText("Reason"));
+            io_.say("Mark adjusted.");
+            break;
+        }
+        case 3:
+            s_.moderation.returnForRemarking(s, sub.getId(), io_.requiredText("Comment for the lecturer"));
+            io_.say("Returned to the lecturer.");
+            break;
+        default: break;  // menu() only returns listed choices
     }
 }
 

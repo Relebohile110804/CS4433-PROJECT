@@ -51,7 +51,7 @@ domain::TimePoint fromIsoText(const std::string& text) {
     unsigned mo, d;
     if (text.size() != 20 || std::sscanf(text.c_str(), "%4d-%2u-%2uT%2d:%2d:%2dZ", &y, &mo, &d, &hh, &mm, &ss) != 6)
         throw std::runtime_error("Bad time in database: " + text);
-    long long secs = daysFromCivil(y, mo, d) * 86400 + hh * 3600 + mm * 60 + ss;
+    long long secs = daysFromCivil(y, mo, d) * 86400 + hh * 3600LL + mm * 60LL + ss;
     return domain::TimePoint(std::chrono::duration_cast<domain::TimePoint::duration>(std::chrono::seconds(secs)));
 }
 

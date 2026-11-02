@@ -8,7 +8,7 @@ int TenPercentPerDayPolicy::daysLate(domain::TimePoint deadline, domain::TimePoi
     if (submittedAt <= deadline) return 0;
     // One second late already counts as one day, so round the late time up to whole days.
     auto late = std::chrono::duration_cast<std::chrono::seconds>(submittedAt - deadline).count();
-    const long long day = 24 * 60 * 60;
+    const long long day = 24LL * 60 * 60;
     return static_cast<int>((late + day - 1) / day);
 }
 
