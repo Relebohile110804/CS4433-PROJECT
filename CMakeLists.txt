@@ -126,7 +126,8 @@ if(LMS_BUILD_TESTS)
     add_executable(lms_tests ${test_sources})
     target_link_libraries(lms_tests PRIVATE catch2 lms_presentation lms_business lms_data)
     target_link_libraries(lms_tests PRIVATE ${LMS_SQLITE})
-    target_compile_definitions(lms_tests PRIVATE LMS_SCHEMA_PATH="${CMAKE_CURRENT_SOURCE_DIR}/database/schema.sql")
+    target_compile_definitions(lms_tests PRIVATE LMS_SCHEMA_PATH="${CMAKE_CURRENT_SOURCE_DIR}/database/schema.sql"
+                                                 LMS_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
     # One CTest entry per V-Model level, selected by the tags on each TEST_CASE.
     add_test(NAME unit_tests COMMAND lms_tests "[unit]")
